@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101018" />
+    <meta name="description" content="TrackTally – das private Musikquiz für deine Spotify-Playlists." />
+    <title>TrackTally – Dein Spotify-Musikquiz</title>
+    <link rel="preconnect" href="https://api.spotify.com" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="site-header wrap">
+      <a class="brand" href="#top" aria-label="TrackTally Startseite">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>track<span>tally</span></span>
+      </a>
+      <nav aria-label="Hauptnavigation">
+        <a href="#so-funktionierts">So funktioniert’s</a>
+        <a href="#privat">Privat spielen</a>
+        <a href="#setup">Einrichtung</a>
+      </nav>
+      <button class="button button-small" id="headerConnect">Spotify verbinden</button>
+    </header>
+
+    <main id="top">
+      <section class="hero wrap">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot"></span> Musikwissen, ganz persönlich</p>
+          <h1>Kennt ihr euch<br /><em>wirklich</em> aus?</h1>
+          <p class="lead">Erstelle in Sekunden ein Musikquiz aus deinen Spotify-Playlists. Hör rein, rate mit und finde heraus, wer in eurer Runde die besten Ohren hat.</p>
+          <div class="hero-actions">
+            <button class="button button-primary" id="heroConnect">Mit Spotify spielen <span aria-hidden="true">↗</span></button>
+            <button class="text-button" id="demoStart">Demo-Runde starten <span aria-hidden="true">→</span></button>
+          </div>
+          <div class="micro-proof"><span class="stacked-avatars" aria-hidden="true"><b>J</b><b>L</b><b>M</b></span> Für deine Clique statt für irgendeinen Algorithmus</div>
+        </div>
+        <div class="hero-art" aria-label="Vorschau einer Quizrunde">
+          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+          <div class="floating-note note-one">♫</div><div class="floating-note note-two">✦</div>
+          <article class="round-preview">
+            <div class="preview-top"><span><i class="live-dot"></i> RUNDE 03 / 10</span><strong>750 Pkt.</strong></div>
+            <div class="cover-art"><span>?</span><div class="cover-shine"></div></div>
+            <p class="preview-label">WER HAT DIESEN TRACK GEMACHT?</p>
+            <div class="mini-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="preview-choice selected">A&nbsp;&nbsp; The Midnight Owls <span>✓</span></div>
+            <div class="preview-choice">B&nbsp;&nbsp; Northern Lights</div>
+          </article>
+          <div class="score-chip"><span>+100</span><small>Streak!</small></div>
+        </div>
+      </section>
+
+      <section class="ticker" aria-label="Spielmodi"><div><span>PLAYLIST QUIZ</span><b>✦</b><span>FREUNDESABEND</span><b>✦</b><span>FAVORITEN TESTEN</span><b>✦</b><span>PLAYLIST QUIZ</span><b>✦</b><span>FREUNDESABEND</span><b>✦</b></div></section>
+
+      <section class="how wrap" id="so-funktionierts">
+        <div class="section-intro"><p class="eyebrow">Drei Klicks bis zum ersten Song</p><h2>Der gute Teil eurer Musikbibliothek wird zum Spiel.</h2></div>
+        <ol class="steps">
+          <li><span class="step-number">01</span><h3>Spotify verbinden</h3><p>Du entscheidest, welche Playlists TrackTally sehen darf.</p></li>
+          <li><span class="step-number">02</span><h3>Playlist auswählen</h3><p>Indie-Favoriten, 2000er-Hits oder euer Roadtrip-Soundtrack.</p></li>
+          <li><span class="step-number">03</span><h3>Reinhören &amp; punkten</h3><p>Kurze Clips, schnelle Antworten und eine verdiente Krone.</p></li>
+        </ol>
+      </section>
+
+      <section class="play-area wrap" id="setup">
+        <div class="setup-panel" id="setupPanel">
+          <div class="panel-kicker">DEIN QUIZ</div>
+          <h2>Was läuft bei euch?</h2>
+          <p class="setup-description" id="setupDescription">Verbinde Spotify, wähle eine Playlist und lege die Rundenanzahl fest.</p>
+          <div class="auth-state" id="authState">
+            <span class="spotify-pulse" aria-hidden="true">♪</span>
+            <div><strong>Noch nicht verbunden</strong><small>Deine Daten bleiben in deinem Browser.</small></div>
+          </div>
+          <div class="playlist-control disabled" id="playlistControl">
+            <label for="playlistSelect">Deine Playlist</label>
+            <select id="playlistSelect" disabled><option>Erst Spotify verbinden</option></select>
+          </div>
+          <div class="rounds-row"><span>Runden</span><div class="round-picker" role="group" aria-label="Rundenanzahl"><button data-rounds="5">5</button><button class="active" data-rounds="10">10</button><button data-rounds="15">15</button></div></div>
+          <button class="button button-primary button-wide" id="connectButton">Spotify verbinden <span aria-hidden="true">↗</span></button>
+          <button class="button button-secondary button-wide hidden" id="startPlaylistGame">Quiz mit Playlist starten <span aria-hidden="true">→</span></button>
+          <p class="helper">Für die echte Verbindung trägst du einmal deine Client-ID in <code>spotify.config.js</code> ein.</p>
+        </div>
+        <aside class="privacy-note" id="privat">
+          <span class="privacy-icon">⌁</span><p class="eyebrow">NUR FÜR EUCH</p><h3>Deine Playlist bleibt deine Playlist.</h3><p>TrackTally fragt nur die Berechtigungen ab, die zum Erstellen eures Quiz nötig sind. Es veröffentlicht nichts und speichert keine Musikdaten auf einem Server.</p>
+          <ul><li>PKCE-Login ohne Client Secret im Browser</li><li>Keine Posts, keine Playlist-Änderungen</li><li>Zum Teilen reicht ein Link zu dieser Seite</li></ul>
+        </aside>
+      </section>
+
+      <section class="game-shell wrap hidden" id="gameShell" aria-live="polite">
+        <div class="game-topline"><button class="back-button" id="leaveGame">← Quiz verlassen</button><span id="roundCounter">RUNDE 1 / 10</span><strong><span id="score">0</span> Pkt.</strong></div>
+        <div class="game-layout">
+          <div class="game-main">
+            <div class="track-visual" id="trackVisual"><div class="vinyl"><span></span></div><div class="visual-glow"></div><div class="question-mark">?</div></div>
+            <p class="game-prompt">WER SINGT DIESEN SONG?</p>
+            <p class="track-clue" id="trackClue">Hör genau hin – du hast einen Versuch.</p>
+            <div class="player-row"><button class="play-button" id="playPreview" aria-label="Hörprobe abspielen"><span class="play-triangle"></span></button><div class="waveform" id="waveform" aria-hidden="true"></div><span class="preview-time" id="previewTime">0:00</span></div>
+            <audio id="previewAudio" preload="none"></audio>
+            <div class="answer-grid" id="answerGrid"></div>
+            <div class="answer-feedback hidden" id="answerFeedback"></div>
+            <button class="button button-primary next-button hidden" id="nextQuestion">Nächste Runde <span aria-hidden="true">→</span></button>
+          </div>
+          <aside class="game-sidebar"><p class="eyebrow">EURE SESSION</p><div class="streak-box"><span>⚡</span><div><strong id="streak">0er-Streak</strong><small>Treffer in Folge</small></div></div><div class="session-stats"><div><strong id="correctCount">0</strong><span>richtig</span></div><div><strong id="bestStreak">0</strong><span>beste Serie</span></div></div><div class="room-card"><span>♧</span><p><strong>Freunde dabei?</strong> Schickt ihnen den Link und startet dieselbe Playlist-Runde.</p><button id="shareGame">Einladungslink kopieren</button></div></aside>
+        </div>
+      </section>
+
+      <section class="result-card wrap hidden" id="resultCard">
+        <div class="result-confetti" aria-hidden="true">✦ &nbsp; ♪ &nbsp; ✦</div><p class="eyebrow">QUIZ BEENDET</p><h2 id="resultTitle">Starke Runde!</h2><p id="resultCopy">Du hast 0 von 10 Songs erraten.</p><div class="final-score"><span id="finalScore">0</span><small>Punkte</small></div><div class="result-actions"><button class="button button-primary" id="playAgain">Noch eine Runde</button><button class="button button-secondary" id="backToSetup">Andere Playlist</button></div>
+      </section>
+    </main>
+
+    <footer class="site-footer wrap"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>track<span>tally</span></span></div><p>Ein privates Quizprojekt, nicht mit Spotify AB verbunden oder von Spotify unterstützt.</p><a href="https://developer.spotify.com/" target="_blank" rel="noreferrer">Spotify for Developers ↗</a></footer>
+
+    <div class="modal-backdrop hidden" id="configModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="config-modal"><button class="close-modal" id="closeModal" aria-label="Dialog schließen">×</button><p class="eyebrow">EINMALIGE EINRICHTUNG</p><h2 id="modalTitle">Spotify-App verbinden</h2><p>Für den echten Login braucht TrackTally eine Spotify Client-ID. Die Erstellung ist kostenlos und dauert nur wenige Minuten.</p><ol><li>Erstelle im <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a> eine App.</li><li>Trage die Adresse dieser Seite als Redirect URI ein.</li><li>Kopiere die Client-ID in <code>spotify.config.js</code>.</li></ol><div class="redirect-copy"><span>Redirect URI</span><code id="redirectUri"></code><button id="copyRedirect">Kopieren</button></div><p class="modal-small">Anschließend Seite neu laden und erneut auf „Spotify verbinden“ klicken.</p></div></div>
+    <script src="spotify.config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
