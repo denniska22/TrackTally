@@ -19,6 +19,7 @@
   const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'user-library-read', 'streaming', 'user-modify-playback-state'];
   const GAME_SCOPES = ['streaming', 'user-modify-playback-state', 'user-library-read'];
   const QUIZ_CLIP_MS = 20_000;
+  const ROUND_TIME_MS = 10_000;
   const LIKED_SONGS_VALUE = '__liked_songs__';
   const DEMO_TRACKS = [
     { name: 'Electric Summer', artists: [{ name: 'Neon Coast' }], album: { name: 'Poolside FM', images: [] }, preview_url: null, clue: 'Synthpop · 2024' },
@@ -35,12 +36,14 @@
   const elements = {
     setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual').querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
   };
+  const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
   let audioContext;
   let webPlayer;
   let webPlayerDeviceId;
   let webPlayerReady;
   let streamStopTimer;
+  let roundTimerId;
 
   function redirectUri() { return CONFIG.redirectUri || window.location.origin + window.location.pathname; }
   function configured() { return CONFIG.clientId && CONFIG.clientId !== PLACEHOLDER_ID; }
@@ -56,6 +59,23 @@
 
   function makeWave() {
     elements.waveform.innerHTML = Array.from({ length: 58 }, (_, i) => `<i style="height:${5 + ((i * 17 + 11) % 24)}px"></i>`).join('');
+  }
+  function clearRoundTimer() { clearInterval(roundTimerId); roundTimerId = undefined; }
+  function updateRoundTimer(remaining) {
+    if (!timerElements.value || !timerElements.bar || !timerElements.meter) return;
+    timerElements.value.textContent = Math.ceil(remaining / 1000);
+    timerElements.bar.style.width = `${Math.max(0, remaining / ROUND_TIME_MS) * 100}%`;
+    timerElements.meter.classList.toggle('warning', remaining <= 3_000);
+  }
+  function startRoundTimer() {
+    clearRoundTimer();
+    const deadline = Date.now() + ROUND_TIME_MS;
+    updateRoundTimer(ROUND_TIME_MS);
+    roundTimerId = setInterval(() => {
+      const remaining = Math.max(0, deadline - Date.now());
+      updateRoundTimer(remaining);
+      if (remaining === 0) { clearRoundTimer(); timeExpired(); }
+    }, 100);
   }
   function setRounds(value) {
     game.rounds = Number(value);
@@ -268,18 +288,20 @@
     options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
     makeWave();
+    startRoundTimer();
   }
-  function answerQuestion(button, track) {
-    if (game.answered) return; game.answered = true; stopAudio();
-    const right = button.dataset.correct === 'true';
+  function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
+  function timeExpired() { if (!game.answered) resolveQuestion(game.questions[game.index], null, false, true); }
+  function resolveQuestion(track, button, right, timedOut) {
+    if (game.answered) return; game.answered = true; clearRoundTimer(); stopAudio();
     elements.answers.querySelectorAll('.answer').forEach(item => { item.disabled = true; if (item.dataset.correct === 'true') item.classList.add('correct'); });
     if (right) { game.correct++; game.streak++; game.bestStreak = Math.max(game.bestStreak, game.streak); const points = 100 + Math.min(game.streak - 1, 5) * 25; game.score += points; elements.feedback.innerHTML = `<strong>Treffer! +${points} Punkte</strong> &nbsp; „${escapeHtml(track.name)}“` ; }
-    else { button.classList.add('wrong'); game.streak = 0; elements.feedback.innerHTML = `Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}`; }
+    else { if (button) button.classList.add('wrong'); game.streak = 0; elements.feedback.innerHTML = timedOut ? `Zeit abgelaufen! Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}` : `Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}`; }
     elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak; elements.feedback.classList.remove('hidden'); elements.next.textContent = game.index + 1 === game.rounds ? 'Ergebnis ansehen →' : 'Nächste Runde →'; elements.next.classList.remove('hidden');
   }
   function nextQuestion() { if (game.index + 1 >= game.rounds) return finishGame(); game.index++; renderQuestion(); }
   function finishGame() {
-    stopAudio(); elements.game.classList.add('hidden'); elements.results.classList.remove('hidden');
+    clearRoundTimer(); stopAudio(); elements.game.classList.add('hidden'); elements.results.classList.remove('hidden');
     const ratio = game.correct / game.rounds; elements.resultTitle.textContent = ratio >= .8 ? 'Musiklexikon!' : ratio >= .5 ? 'Starke Runde!' : 'Nächste Runde gehört euch!'; elements.resultCopy.textContent = `Du hast ${game.correct} von ${game.rounds} Songs erraten.`; elements.finalScore.textContent = game.score; window.scrollTo({ top: elements.results.offsetTop - 40, behavior: 'smooth' });
   }
   async function stopSpotifyPlayback() {
@@ -331,6 +353,8 @@
   async function copy(value, successElement) { try { await navigator.clipboard.writeText(value); const previous = successElement.textContent; successElement.textContent = 'Kopiert ✓'; setTimeout(() => successElement.textContent = previous, 1800); } catch { window.prompt('Kopiere diesen Text:', value); } }
 
   elements.connect.addEventListener('click', beginSpotifyLogin); elements.headerConnect.addEventListener('click', beginSpotifyLogin); elements.heroConnect.addEventListener('click', beginSpotifyLogin); elements.demo.addEventListener('click', startDemo); elements.startPlaylist.addEventListener('click', startPlaylistGame); elements.play.addEventListener('click', togglePreview); elements.next.addEventListener('click', nextQuestion); elements.leave.addEventListener('click', () => { stopAudio(); elements.game.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); }); elements.playAgain.addEventListener('click', () => startGame(game.mode, game.allTracks)); elements.backToSetup.addEventListener('click', () => { elements.results.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); window.scrollTo({ top: elements.setup.offsetTop - 50, behavior: 'smooth' }); }); elements.share.addEventListener('click', () => copy(window.location.href, elements.share)); elements.closeModal.addEventListener('click', () => elements.modal.classList.add('hidden')); elements.modal.addEventListener('click', event => { if (event.target === elements.modal) elements.modal.classList.add('hidden'); }); elements.copyRedirect.addEventListener('click', () => copy(redirectUri(), elements.copyRedirect));
+  elements.leave.addEventListener('click', clearRoundTimer);
+  elements.backToSetup.addEventListener('click', clearRoundTimer);
   handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
   makeWave();
 })();
