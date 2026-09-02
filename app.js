@@ -251,7 +251,7 @@
     elements.clue.textContent = isDemo() ? track.clue : 'Vollständiger Spotify-Titel · du hast einen Versuch.';
     const distractors = shuffle(game.allTracks.filter(item => item !== track && item.artists?.[0]?.name !== track.artists?.[0]?.name)).slice(0, 3);
     const options = shuffle([track, ...distractors]);
-    options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.artists[0].name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
+    options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
     makeWave();
   }
@@ -259,8 +259,8 @@
     if (game.answered) return; game.answered = true; stopAudio();
     const right = button.dataset.correct === 'true';
     elements.answers.querySelectorAll('.answer').forEach(item => { item.disabled = true; if (item.dataset.correct === 'true') item.classList.add('correct'); });
-    if (right) { game.correct++; game.streak++; game.bestStreak = Math.max(game.bestStreak, game.streak); const points = 100 + Math.min(game.streak - 1, 5) * 25; game.score += points; elements.feedback.innerHTML = `<strong>Treffer! +${points} Punkte</strong> &nbsp; ${escapeHtml(track.name)}`; }
-    else { button.classList.add('wrong'); game.streak = 0; elements.feedback.innerHTML = `Das war <strong>${escapeHtml(track.artists[0].name)}</strong> – „${escapeHtml(track.name)}“`; }
+    if (right) { game.correct++; game.streak++; game.bestStreak = Math.max(game.bestStreak, game.streak); const points = 100 + Math.min(game.streak - 1, 5) * 25; game.score += points; elements.feedback.innerHTML = `<strong>Treffer! +${points} Punkte</strong> &nbsp; „${escapeHtml(track.name)}“` ; }
+    else { button.classList.add('wrong'); game.streak = 0; elements.feedback.innerHTML = `Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}`; }
     elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak; elements.feedback.classList.remove('hidden'); elements.next.textContent = game.index + 1 === game.rounds ? 'Ergebnis ansehen →' : 'Nächste Runde →'; elements.next.classList.remove('hidden');
   }
   function nextQuestion() { if (game.index + 1 >= game.rounds) return finishGame(); game.index++; renderQuestion(); }
