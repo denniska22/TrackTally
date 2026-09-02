@@ -46,15 +46,22 @@
   let roundTimerId;
   let playbackVolume = Math.max(0, Math.min(1, Number(localStorage.getItem('tracktally_volume') ?? 65) / 100));
   const artistGenreCache = new Map();
+  let artistQuizStarting = false;
 
   function appRootUrl() {
     const path = window.location.pathname;
     const rootPath = /\/[^/]+\.[^/]+$/.test(path) ? path.slice(0, path.lastIndexOf('/') + 1) : path;
     return window.location.origin + rootPath;
   }
-  function playPageUrl() { return `${appRootUrl()}play.html`; }
+  function playPageUrl(artistId = '') {
+    const url = new URL('play.html', appRootUrl());
+    if (artistId) url.searchParams.set('artist', artistId);
+    return url.href;
+  }
+  function artistIdFromUrl() { return new URLSearchParams(window.location.search).get('artist') || ''; }
   function redirectUri() { return CONFIG.redirectUri || appRootUrl(); }
   function openPlayPage() { window.location.assign(playPageUrl()); }
+  function openArtistQuiz(artistId) { window.location.assign(playPageUrl(artistId)); }
   function configured() { return CONFIG.clientId && CONFIG.clientId !== PLACEHOLDER_ID; }
   function tokenData() { try { return JSON.parse(sessionStorage.getItem('tracktally_token') || 'null'); } catch { return null; } }
   function setToken(data) { sessionStorage.setItem('tracktally_token', JSON.stringify(data)); }
@@ -114,8 +121,15 @@
   }
   async function beginSpotifyLogin() {
     if (!configured()) return showConfigModal();
-    if (window.location.pathname.endsWith('/play.html')) sessionStorage.setItem('tracktally_return_to_play', 'true');
-    else sessionStorage.removeItem('tracktally_return_to_play');
+    if (window.location.pathname.endsWith('/play.html')) {
+      sessionStorage.setItem('tracktally_return_to_play', 'true');
+      const artistId = artistIdFromUrl();
+      if (artistId) sessionStorage.setItem('tracktally_artist_quiz', artistId);
+      else sessionStorage.removeItem('tracktally_artist_quiz');
+    } else {
+      sessionStorage.removeItem('tracktally_return_to_play');
+      sessionStorage.removeItem('tracktally_artist_quiz');
+    }
     const verifier = randomString(96), state = randomString(22), challenge = await sha256(verifier);
     sessionStorage.setItem('tracktally_verifier', verifier);
     sessionStorage.setItem('tracktally_state', state);
@@ -126,7 +140,7 @@
     const params = new URLSearchParams(location.search);
     const code = params.get('code'), state = params.get('state'), error = params.get('error');
     if (!code && !error) return false;
-    if (error) { sessionStorage.removeItem('tracktally_return_to_play'); showMessage(`Spotify-Login abgebrochen: ${error}.`); cleanUrl(); return true; }
+    if (error) { sessionStorage.removeItem('tracktally_return_to_play'); sessionStorage.removeItem('tracktally_artist_quiz'); showMessage(`Spotify-Login abgebrochen: ${error}.`); cleanUrl(); return true; }
     if (state !== sessionStorage.getItem('tracktally_state')) { showMessage('Der Spotify-Login konnte aus Sicherheitsgründen nicht bestätigt werden. Bitte erneut versuchen.'); cleanUrl(); return true; }
     try {
       const response = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: CONFIG.clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri(), code_verifier: sessionStorage.getItem('tracktally_verifier') || '' }) });
@@ -134,9 +148,11 @@
       if (!response.ok) throw new Error(data.error_description || data.error || 'Token konnte nicht geladen werden');
       setToken({ ...data, expires_at: Date.now() + data.expires_in * 1000 });
       const returnToPlay = sessionStorage.getItem('tracktally_return_to_play') === 'true';
+      const artistQuizId = sessionStorage.getItem('tracktally_artist_quiz') || '';
       sessionStorage.removeItem('tracktally_return_to_play');
+      sessionStorage.removeItem('tracktally_artist_quiz');
       cleanUrl();
-      if (returnToPlay && !window.location.pathname.endsWith('/play.html')) { window.location.replace(playPageUrl()); return true; }
+      if (returnToPlay && !window.location.pathname.endsWith('/play.html')) { window.location.replace(playPageUrl(artistQuizId)); return true; }
       await loadSpotifyProfile();
     } catch (error) { showMessage(`Spotify-Verbindung fehlgeschlagen: ${error.message}`); cleanUrl(); }
     return true;
@@ -176,6 +192,8 @@
       const artists = [...(topArtists.items || []), ...(followedArtists.artists?.items || [])];
       const uniqueArtists = [...new Map(artists.map(artist => [artist.id, artist])).values()];
       renderConnected(profile, items, uniqueArtists);
+      const artistId = artistIdFromUrl();
+      if (artistId && window.location.pathname.endsWith('/play.html')) void startArtistQuiz(artistId);
     } catch (error) { showMessage(error.message); }
   }
   function renderConnected(profile, playlists, artists = []) {
@@ -200,7 +218,8 @@
   function renderHomeCollections(playlists, artists) {
     const artistsRail = $('#artistsRail'); const playlistsRail = $('#playlistsRail');
     if (artistsRail) {
-      artistsRail.innerHTML = artists.length ? artists.slice(0, 10).map(artist => `<article class="media-card user-media-card"><div class="tile-art user-cover">${coverMarkup(artist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(artist.name)}</strong><small>${escapeHtml((artist.genres || []).slice(0, 2).join(' · ') || 'Dein Artist')}</small></div></article>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♫</span></div><div class="tile-copy"><strong>Noch keine Artists</strong><small>Nach dem erneuten Verbinden erscheinen sie hier.</small></div></article>';
+      artistsRail.innerHTML = artists.length ? artists.slice(0, 10).map(artist => `<button class="media-card user-media-card artist-launch" type="button" data-artist-id="${escapeHtml(artist.id)}" aria-label="Quiz mit Songs von ${escapeHtml(artist.name)} starten"><div class="tile-art user-cover">${coverMarkup(artist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(artist.name)}</strong><small>${escapeHtml((artist.genres || []).slice(0, 2).join(' · ') || 'Artist-Quiz starten')}</small></div><span class="artist-launch-hint" aria-hidden="true">Quiz starten →</span></button>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♫</span></div><div class="tile-copy"><strong>Noch keine Artists</strong><small>Nach dem erneuten Verbinden erscheinen sie hier.</small></div></article>';
+      artistsRail.querySelectorAll('[data-artist-id]').forEach(card => card.addEventListener('click', () => openArtistQuiz(card.dataset.artistId)));
     }
     if (playlistsRail) {
       playlistsRail.innerHTML = playlists.length ? playlists.slice(0, 10).map(playlist => `<article class="media-card user-media-card"><div class="tile-art user-cover">${coverMarkup(playlist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(playlist.name)}</strong><small>${escapeHtml(playlist.owner?.display_name || 'Spotify')} · ${playlist.items?.total ?? playlist.tracks?.total ?? 0} Songs</small></div></article>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♪</span></div><div class="tile-copy"><strong>Noch keine Playlists</strong><small>Gespeicherte Playlists erscheinen hier.</small></div></article>';
@@ -347,6 +366,66 @@
       offset += items.length;
       if (!data.next || items.length === 0) return tracks;
     } while (true);
+  }
+  async function getArtistAlbums(artistId) {
+    const albums = [];
+    let offset = 0;
+    do {
+      const data = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}/albums?include_groups=album,single,compilation,appears_on&limit=50&offset=${offset}`);
+      const items = data.items || [];
+      albums.push(...items);
+      offset += items.length;
+      if (!data.next || items.length === 0) break;
+    } while (true);
+    return [...new Map(albums.map(album => [album.id, album])).values()];
+  }
+  async function getArtistAlbumTracks(album) {
+    const tracks = [];
+    let offset = 0;
+    do {
+      const data = await spotifyFetch(`/albums/${encodeURIComponent(album.id)}/tracks?limit=50&offset=${offset}`);
+      const items = data.items || [];
+      tracks.push(...items.map(track => ({ ...track, album: { name: album.name, images: album.images || [] } })));
+      offset += items.length;
+      if (!data.next || items.length === 0) return tracks;
+    } while (true);
+  }
+  async function getArtistDiscography(artistId) {
+    const [artist, albums] = await Promise.all([
+      spotifyFetch(`/artists/${encodeURIComponent(artistId)}`),
+      getArtistAlbums(artistId)
+    ]);
+    const tracks = [];
+    const batchSize = 4;
+    for (let index = 0; index < albums.length; index += batchSize) {
+      const batch = albums.slice(index, index + batchSize);
+      const albumTracks = await Promise.all(batch.map(getArtistAlbumTracks));
+      tracks.push(...albumTracks.flat());
+      if (elements.setupDescription) elements.setupDescription.textContent = `„${artist.name}“ wird geladen … Album ${Math.min(index + batch.length, albums.length)} von ${albums.length}`;
+    }
+    return {
+      artist,
+      tracks: [...new Map(tracks.filter(track => track.id).map(track => [track.id, track])).values()]
+    };
+  }
+  async function startArtistQuiz(artistId) {
+    if (artistQuizStarting) return;
+    artistQuizStarting = true;
+    try {
+      if (!hasGameScopes()) {
+        showMessage('Für ein Artist-Quiz braucht TrackTally einmalig die Spotify-Wiedergabe-Berechtigung.');
+        await beginSpotifyLogin();
+        return;
+      }
+      if (elements.setupDescription) elements.setupDescription.textContent = 'Artist-Quiz wird vorbereitet …';
+      const [playerReady, discography] = await Promise.all([prepareWebPlayer(), getArtistDiscography(artistId)]);
+      if (!playerReady) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
+      const playable = discography.tracks.filter(track => track.uri && track.artists?.some(artist => artist.id === artistId));
+      if (playable.length < 4) throw new Error(`Für „${discography.artist.name}“ sind auf deinem Spotify-Konto zu wenige abspielbare Songs verfügbar.`);
+      if (elements.setupDescription) elements.setupDescription.textContent = `„${discography.artist.name}“: ${playable.length} Songs bereit. Quiz startet …`;
+      startGame('spotify', await addArtistGenres(playable));
+    } catch (error) { showMessage(error.message); }
+    finally { artistQuizStarting = false; }
   }
   async function startPlaylistGame() {
     const id = elements.playlistSelect.value; if (!id) return showMessage('Bitte wähle zuerst eine Musikquelle mit genügend Songs.');
