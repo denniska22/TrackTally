@@ -44,6 +44,7 @@
   let webPlayerReady;
   let spotifyPlaying = false;
   let roundTimerId;
+  const artistGenreCache = new Map();
 
   function redirectUri() { return CONFIG.redirectUri || window.location.origin + window.location.pathname; }
   function configured() { return CONFIG.clientId && CONFIG.clientId !== PLACEHOLDER_ID; }
@@ -222,6 +223,37 @@
     });
     return webPlayerReady;
   }
+  async function addArtistGenres(tracks) {
+    const artistIds = [...new Set(tracks.flatMap(track => (track.artists || []).map(artist => artist.id).filter(Boolean)))];
+    const missingIds = artistIds.filter(id => !artistGenreCache.has(id));
+    try {
+      for (let index = 0; index < missingIds.length; index += 50) {
+        const ids = missingIds.slice(index, index + 50);
+        const data = await spotifyFetch(`/artists?ids=${ids.map(encodeURIComponent).join(',')}`);
+        (data.artists || []).forEach(artist => artistGenreCache.set(artist.id, artist.genres || []));
+        ids.forEach(id => { if (!artistGenreCache.has(id)) artistGenreCache.set(id, []); });
+      }
+    } catch {
+      return tracks;
+    }
+    return tracks.map(track => ({ ...track, quizGenres: [...new Set((track.artists || []).flatMap(artist => artistGenreCache.get(artist.id) || []))] }));
+  }
+  function sharesArtist(first, second) {
+    const artistKeys = new Set((first.artists || []).map(artist => artist.id || artist.name).filter(Boolean));
+    return (second.artists || []).some(artist => artistKeys.has(artist.id || artist.name));
+  }
+  function sharesGenre(first, second) {
+    const genres = new Set(first.quizGenres || []);
+    return (second.quizGenres || []).some(genre => genres.has(genre));
+  }
+  function relatedDistractors(track) {
+    const others = game.allTracks.filter(item => item !== track);
+    const sameArtist = shuffle(others.filter(item => sharesArtist(track, item)));
+    const sameGenre = shuffle(others.filter(item => !sharesArtist(track, item) && sharesGenre(track, item)));
+    const selected = [...sameArtist, ...sameGenre];
+    const selectedItems = new Set(selected);
+    return [...selected, ...shuffle(others.filter(item => !selectedItems.has(item)))].slice(0, 3);
+  }
   async function getPlaylistTracks(id) {
     try {
       const tracks = [];
@@ -269,7 +301,8 @@
       const tracks = id === LIKED_SONGS_VALUE ? await getLikedTracks() : await getPlaylistTracks(id);
       const playable = tracks.filter(track => track.uri && track.artists?.[0]?.name);
       if (playable.length < 4) throw new Error('In dieser Auswahl sind zu wenige auf deinem Konto abspielbare Songs.');
-      startGame('spotify', playable);
+      elements.startPlaylist.textContent = 'Ähnliche Antworten werden vorbereitet …';
+      startGame('spotify', await addArtistGenres(playable));
     } catch (error) { showMessage(error.message); }
     finally { elements.startPlaylist.disabled = false; elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>'; }
   }
@@ -285,7 +318,7 @@
     stopAudio(); elements.answers.innerHTML = ''; elements.feedback.classList.add('hidden'); elements.next.classList.add('hidden');
     elements.round.textContent = `RUNDE ${game.index + 1} / ${game.rounds}`; elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak;
     elements.clue.textContent = isDemo() ? track.clue : 'Zufälliger Song-Ausschnitt · du hast einen Versuch.';
-    const distractors = shuffle(game.allTracks.filter(item => item !== track && item.artists?.[0]?.name !== track.artists?.[0]?.name)).slice(0, 3);
+    const distractors = relatedDistractors(track);
     const options = shuffle([track, ...distractors]);
     options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.disabled = true; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
