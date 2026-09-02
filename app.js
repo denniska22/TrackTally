@@ -205,6 +205,25 @@
     if (playlistsRail) {
       playlistsRail.innerHTML = playlists.length ? playlists.slice(0, 10).map(playlist => `<article class="media-card user-media-card"><div class="tile-art user-cover">${coverMarkup(playlist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(playlist.name)}</strong><small>${escapeHtml(playlist.owner?.display_name || 'Spotify')} · ${playlist.items?.total ?? playlist.tracks?.total ?? 0} Songs</small></div></article>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♪</span></div><div class="tile-copy"><strong>Noch keine Playlists</strong><small>Gespeicherte Playlists erscheinen hier.</small></div></article>';
     }
+    requestAnimationFrame(refreshHomeRailSliders);
+  }
+  function setupRailSlider(railId, sliderId) {
+    const rail = $(`#${railId}`); const slider = $(`#${sliderId}`);
+    if (!rail || !slider) return;
+    const updateBounds = () => {
+      const max = Math.max(0, rail.scrollWidth - rail.clientWidth);
+      slider.max = String(Math.ceil(max)); slider.value = String(Math.min(max, rail.scrollLeft)); slider.disabled = max === 0;
+    };
+    if (!slider.dataset.bound) {
+      slider.addEventListener('input', () => { rail.scrollLeft = Number(slider.value); });
+      rail.addEventListener('scroll', () => { slider.value = String(Math.round(rail.scrollLeft)); }, { passive: true });
+      slider.dataset.bound = 'true';
+    }
+    updateBounds();
+  }
+  function refreshHomeRailSliders() {
+    setupRailSlider('artistsRail', 'artistsRailSlider');
+    setupRailSlider('playlistsRail', 'playlistsRailSlider');
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
   function loadWebPlaybackSdk() {
@@ -464,5 +483,6 @@
   elements.leave?.addEventListener('click', clearRoundTimer);
   elements.backToSetup?.addEventListener('click', clearRoundTimer);
   handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
+  refreshHomeRailSliders();
   makeWave();
 })();
