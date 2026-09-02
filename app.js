@@ -47,21 +47,25 @@
   let playbackVolume = Math.max(0, Math.min(1, Number(localStorage.getItem('tracktally_volume') ?? 65) / 100));
   const artistGenreCache = new Map();
   let artistQuizStarting = false;
+  let playlistQuizStarting = false;
 
   function appRootUrl() {
     const path = window.location.pathname;
     const rootPath = /\/[^/]+\.[^/]+$/.test(path) ? path.slice(0, path.lastIndexOf('/') + 1) : path;
     return window.location.origin + rootPath;
   }
-  function playPageUrl(artistId = '') {
+  function playPageUrl(artistId = '', playlistId = '') {
     const url = new URL('play.html', appRootUrl());
     if (artistId) url.searchParams.set('artist', artistId);
+    if (playlistId) url.searchParams.set('playlist', playlistId);
     return url.href;
   }
   function artistIdFromUrl() { return new URLSearchParams(window.location.search).get('artist') || ''; }
+  function playlistIdFromUrl() { return new URLSearchParams(window.location.search).get('playlist') || ''; }
   function redirectUri() { return CONFIG.redirectUri || appRootUrl(); }
   function openPlayPage() { window.location.assign(playPageUrl()); }
   function openArtistQuiz(artistId) { window.location.assign(playPageUrl(artistId)); }
+  function openPlaylistQuiz(playlistId) { window.location.assign(playPageUrl('', playlistId)); }
   function configured() { return CONFIG.clientId && CONFIG.clientId !== PLACEHOLDER_ID; }
   function tokenData() { try { return JSON.parse(sessionStorage.getItem('tracktally_token') || 'null'); } catch { return null; } }
   function setToken(data) { sessionStorage.setItem('tracktally_token', JSON.stringify(data)); }
@@ -126,9 +130,13 @@
       const artistId = artistIdFromUrl();
       if (artistId) sessionStorage.setItem('tracktally_artist_quiz', artistId);
       else sessionStorage.removeItem('tracktally_artist_quiz');
+      const playlistId = playlistIdFromUrl();
+      if (playlistId) sessionStorage.setItem('tracktally_playlist_quiz', playlistId);
+      else sessionStorage.removeItem('tracktally_playlist_quiz');
     } else {
       sessionStorage.removeItem('tracktally_return_to_play');
       sessionStorage.removeItem('tracktally_artist_quiz');
+      sessionStorage.removeItem('tracktally_playlist_quiz');
     }
     const verifier = randomString(96), state = randomString(22), challenge = await sha256(verifier);
     sessionStorage.setItem('tracktally_verifier', verifier);
@@ -140,7 +148,7 @@
     const params = new URLSearchParams(location.search);
     const code = params.get('code'), state = params.get('state'), error = params.get('error');
     if (!code && !error) return false;
-    if (error) { sessionStorage.removeItem('tracktally_return_to_play'); sessionStorage.removeItem('tracktally_artist_quiz'); showMessage(`Spotify-Login abgebrochen: ${error}.`); cleanUrl(); return true; }
+    if (error) { sessionStorage.removeItem('tracktally_return_to_play'); sessionStorage.removeItem('tracktally_artist_quiz'); sessionStorage.removeItem('tracktally_playlist_quiz'); showMessage(`Spotify-Login abgebrochen: ${error}.`); cleanUrl(); return true; }
     if (state !== sessionStorage.getItem('tracktally_state')) { showMessage('Der Spotify-Login konnte aus Sicherheitsgründen nicht bestätigt werden. Bitte erneut versuchen.'); cleanUrl(); return true; }
     try {
       const response = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: CONFIG.clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri(), code_verifier: sessionStorage.getItem('tracktally_verifier') || '' }) });
@@ -149,10 +157,12 @@
       setToken({ ...data, expires_at: Date.now() + data.expires_in * 1000 });
       const returnToPlay = sessionStorage.getItem('tracktally_return_to_play') === 'true';
       const artistQuizId = sessionStorage.getItem('tracktally_artist_quiz') || '';
+      const playlistQuizId = sessionStorage.getItem('tracktally_playlist_quiz') || '';
       sessionStorage.removeItem('tracktally_return_to_play');
       sessionStorage.removeItem('tracktally_artist_quiz');
+      sessionStorage.removeItem('tracktally_playlist_quiz');
       cleanUrl();
-      if (returnToPlay && !window.location.pathname.endsWith('/play.html')) { window.location.replace(playPageUrl(artistQuizId)); return true; }
+      if (returnToPlay && !window.location.pathname.endsWith('/play.html')) { window.location.replace(playPageUrl(artistQuizId, playlistQuizId)); return true; }
       await loadSpotifyProfile();
     } catch (error) { showMessage(`Spotify-Verbindung fehlgeschlagen: ${error.message}`); cleanUrl(); }
     return true;
@@ -193,7 +203,9 @@
       const uniqueArtists = [...new Map(artists.map(artist => [artist.id, artist])).values()];
       renderConnected(profile, items, uniqueArtists);
       const artistId = artistIdFromUrl();
+      const playlistId = playlistIdFromUrl();
       if (artistId && window.location.pathname.endsWith('/play.html')) void startArtistQuiz(artistId);
+      else if (playlistId && window.location.pathname.endsWith('/play.html')) void startPlaylistQuiz(playlistId);
     } catch (error) { showMessage(error.message); }
   }
   function renderConnected(profile, playlists, artists = []) {
@@ -222,7 +234,8 @@
       artistsRail.querySelectorAll('[data-artist-id]').forEach(card => card.addEventListener('click', () => openArtistQuiz(card.dataset.artistId)));
     }
     if (playlistsRail) {
-      playlistsRail.innerHTML = playlists.length ? playlists.slice(0, 10).map(playlist => `<article class="media-card user-media-card"><div class="tile-art user-cover">${coverMarkup(playlist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(playlist.name)}</strong><small>${escapeHtml(playlist.owner?.display_name || 'Spotify')} · ${playlist.items?.total ?? playlist.tracks?.total ?? 0} Songs</small></div></article>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♪</span></div><div class="tile-copy"><strong>Noch keine Playlists</strong><small>Gespeicherte Playlists erscheinen hier.</small></div></article>';
+      playlistsRail.innerHTML = playlists.length ? playlists.slice(0, 10).map(playlist => `<button class="media-card user-media-card playlist-launch" type="button" data-playlist-id="${escapeHtml(playlist.id)}" aria-label="Quiz mit der Playlist ${escapeHtml(playlist.name)} starten"><div class="tile-art user-cover">${coverMarkup(playlist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(playlist.name)}</strong><small>${escapeHtml(playlist.owner?.display_name || 'Spotify')} · ${playlist.items?.total ?? playlist.tracks?.total ?? 0} Songs</small></div><span class="playlist-launch-hint" aria-hidden="true">Quiz starten →</span></button>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♪</span></div><div class="tile-copy"><strong>Noch keine Playlists</strong><small>Gespeicherte Playlists erscheinen hier.</small></div></article>';
+      playlistsRail.querySelectorAll('[data-playlist-id]').forEach(card => card.addEventListener('click', () => openPlaylistQuiz(card.dataset.playlistId)));
     }
     requestAnimationFrame(refreshHomeRailSliders);
   }
@@ -427,21 +440,35 @@
     } catch (error) { showMessage(error.message); }
     finally { artistQuizStarting = false; }
   }
+  async function startPlaylistQuiz(id) {
+    if (playlistQuizStarting) return;
+    playlistQuizStarting = true;
+    try {
+      if (!hasGameScopes()) {
+        showMessage('Für die Playlist-Wiedergabe braucht TrackTally einmalig zusätzliche Spotify-Berechtigungen.');
+        await beginSpotifyLogin();
+        return;
+      }
+      if (elements.playlistSelect && id !== LIKED_SONGS_VALUE) elements.playlistSelect.value = id;
+      const selectedName = elements.playlistSelect?.selectedOptions?.[0]?.textContent?.split(' · ')[0] || 'Deine Playlist';
+      if (elements.setupDescription) elements.setupDescription.textContent = `„${selectedName}“ wird vorbereitet …`;
+      const [playerReady, tracks] = await Promise.all([
+        prepareWebPlayer(),
+        id === LIKED_SONGS_VALUE ? getLikedTracks() : getPlaylistTracks(id)
+      ]);
+      if (!playerReady) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
+      const playable = tracks.filter(track => track.uri && track.artists?.[0]?.name);
+      if (playable.length < 4) throw new Error('In dieser Playlist sind zu wenige auf deinem Konto abspielbare Songs.');
+      if (elements.setupDescription) elements.setupDescription.textContent = `„${selectedName}“: ${playable.length} Songs bereit. Quiz startet …`;
+      startGame('spotify', await addArtistGenres(playable));
+    } catch (error) { showMessage(error.message); }
+    finally { playlistQuizStarting = false; }
+  }
   async function startPlaylistGame() {
     const id = elements.playlistSelect.value; if (!id) return showMessage('Bitte wähle zuerst eine Musikquelle mit genügend Songs.');
     elements.startPlaylist.disabled = true; elements.startPlaylist.textContent = 'Playlist wird vorbereitet …';
     try {
-      if (!hasGameScopes()) {
-        showMessage('Für Wiedergabe, Lieblingssongs und deine personalisierte Startseite brauchst du einmalig zusätzliche Spotify-Berechtigungen.');
-        await beginSpotifyLogin();
-        return;
-      }
-      if (!await prepareWebPlayer()) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
-      const tracks = id === LIKED_SONGS_VALUE ? await getLikedTracks() : await getPlaylistTracks(id);
-      const playable = tracks.filter(track => track.uri && track.artists?.[0]?.name);
-      if (playable.length < 4) throw new Error('In dieser Auswahl sind zu wenige auf deinem Konto abspielbare Songs.');
-      elements.startPlaylist.textContent = 'Ähnliche Antworten werden vorbereitet …';
-      startGame('spotify', await addArtistGenres(playable));
+      await startPlaylistQuiz(id);
     } catch (error) { showMessage(error.message); }
     finally { elements.startPlaylist.disabled = false; elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>'; }
   }
