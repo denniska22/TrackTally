@@ -211,6 +211,7 @@
   }
   function renderConnected(profile, playlists, artists = []) {
     if (elements.authState) elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
+    if (elements.headerConnect) { elements.headerConnect.textContent = '✓ Verbunden'; elements.headerConnect.classList.add('connected'); elements.headerConnect.disabled = true; elements.headerConnect.setAttribute('aria-label', 'Spotify ist verbunden'); }
     if (elements.setupDescription) elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
     elements.playlistControl?.classList.remove('disabled'); if (elements.playlistSelect) elements.playlistSelect.disabled = false; if (elements.playlistPickerTrigger) elements.playlistPickerTrigger.disabled = false;
     // Spotify now exposes the count through `items` and retains `tracks` only
