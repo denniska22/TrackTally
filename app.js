@@ -34,7 +34,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
+    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
   };
   const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -192,10 +192,12 @@
   }
   async function loadSpotifyProfile() {
     try {
-      showMessage('Deine Spotify-Startseite wird geladen …');
-      const [profile, playlists, topArtists, followedArtists] = await Promise.all([
-        spotifyFetch('/me'),
-        spotifyFetch('/me/playlists?limit=50'),
+      if (elements.setupDescription) showMessage('Deine Spotify-Startseite wird geladen …');
+      else showHomeNotice('Deine Spotify-Startseite wird geladen …');
+      const profile = await spotifyFetch('/me');
+      let playlistError;
+      const [playlists, topArtists, followedArtists] = await Promise.all([
+        spotifyFetch('/me/playlists?limit=50').catch(error => { playlistError = error; return { items: [] }; }),
         spotifyFetch('/me/top/artists?limit=10&time_range=medium_term').catch(() => ({ items: [] })),
         spotifyFetch('/me/following?type=artist&limit=10').catch(() => ({ artists: { items: [] } }))
       ]);
@@ -203,6 +205,7 @@
       const artists = [...(topArtists.items || []), ...(followedArtists.artists?.items || [])];
       const uniqueArtists = [...new Map(artists.map(artist => [artist.id, artist])).values()];
       renderConnected(profile, items, uniqueArtists);
+      if (playlistError) showHomeNotice(`Spotify ist verbunden, aber deine Playlists konnten nicht geladen werden: ${playlistError.message}`, 'error');
       const artistId = artistIdFromUrl();
       const playlistId = playlistIdFromUrl();
       if (artistId && window.location.pathname.endsWith('/play.html')) void startArtistQuiz(artistId);
@@ -211,7 +214,8 @@
   }
   function renderConnected(profile, playlists, artists = []) {
     if (elements.authState) elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
-    if (elements.headerConnect) { elements.headerConnect.textContent = '✓ Verbunden'; elements.headerConnect.classList.add('connected'); elements.headerConnect.disabled = true; elements.headerConnect.setAttribute('aria-label', 'Spotify ist verbunden'); }
+    if (elements.headerConnect) { elements.headerConnect.textContent = '✓ Verbunden'; elements.headerConnect.classList.remove('connection-error'); elements.headerConnect.classList.add('connected'); elements.headerConnect.disabled = true; elements.headerConnect.setAttribute('aria-label', 'Spotify ist verbunden'); }
+    hideHomeNotice();
     if (elements.setupDescription) elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
     elements.playlistControl?.classList.remove('disabled'); if (elements.playlistSelect) elements.playlistSelect.disabled = false; if (elements.playlistPickerTrigger) elements.playlistPickerTrigger.disabled = false;
     // Spotify now exposes the count through `items` and retains `tracks` only
@@ -602,7 +606,13 @@
   elements.audio?.addEventListener('timeupdate', () => { if (elements.time) elements.time.textContent = `0:${String(Math.floor(elements.audio.currentTime)).padStart(2, '0')}`; });
   elements.audio?.addEventListener('ended', stopAudio);
   function showConfigModal() { if (!elements.modal || !elements.redirect) return; elements.redirect.textContent = redirectUri(); elements.modal.classList.remove('hidden'); }
-  function showMessage(message) { if (!elements.setupDescription) return; elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; }
+  function showHomeNotice(message, type = 'info') { if (!elements.connectionNotice) return; elements.connectionNotice.textContent = message; elements.connectionNotice.classList.remove('hidden'); elements.connectionNotice.classList.toggle('error', type === 'error'); }
+  function hideHomeNotice() { if (!elements.connectionNotice) return; elements.connectionNotice.classList.add('hidden'); elements.connectionNotice.classList.remove('error'); }
+  function showMessage(message) {
+    if (elements.setupDescription) { elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; return; }
+    if (elements.headerConnect) { elements.headerConnect.textContent = 'Erneut verbinden'; elements.headerConnect.classList.remove('connected'); elements.headerConnect.classList.add('connection-error'); elements.headerConnect.disabled = false; }
+    showHomeNotice(message, 'error');
+  }
   async function copy(value, successElement) { try { await navigator.clipboard.writeText(value); const previous = successElement.textContent; successElement.textContent = 'Kopiert ✓'; setTimeout(() => successElement.textContent = previous, 1800); } catch { window.prompt('Kopiere diesen Text:', value); } }
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
