@@ -34,7 +34,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
+    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
   };
   const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -48,6 +48,7 @@
   const artistGenreCache = new Map();
   let artistQuizStarting = false;
   let playlistQuizStarting = false;
+  let playlistSources = [];
 
   function appRootUrl() {
     const path = window.location.pathname;
@@ -211,21 +212,50 @@
   function renderConnected(profile, playlists, artists = []) {
     if (elements.authState) elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
     if (elements.setupDescription) elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
-    elements.playlistControl?.classList.remove('disabled'); if (elements.playlistSelect) elements.playlistSelect.disabled = false;
+    elements.playlistControl?.classList.remove('disabled'); if (elements.playlistSelect) elements.playlistSelect.disabled = false; if (elements.playlistPickerTrigger) elements.playlistPickerTrigger.disabled = false;
     // Spotify now exposes the count through `items` and retains `tracks` only
     // for older API responses. Support both so valid playlists are not shown
     // as empty in the selector.
-    const likedSongsOption = `<option value="${LIKED_SONGS_VALUE}">♥ Meine Lieblingssongs</option>`;
-    const playlistOptions = playlists.map(item => {
-      const trackTotal = item.items?.total ?? item.tracks?.total ?? 0;
-      return `<option value="${item.id}">${escapeHtml(item.name)} · ${trackTotal} Songs</option>`;
-    }).join('');
-    if (elements.playlistSelect) elements.playlistSelect.innerHTML = likedSongsOption + playlistOptions;
+    playlistSources = [
+      { id: LIKED_SONGS_VALUE, name: 'Meine Lieblingssongs', meta: 'Deine gespeicherten Titel', imageUrl: '', liked: true },
+      ...playlists.map(item => {
+        const trackTotal = item.items?.total ?? item.tracks?.total ?? 0;
+        return { id: item.id, name: item.name, meta: `${item.owner?.display_name || 'Spotify'} · ${trackTotal} Songs`, imageUrl: item.images?.[0]?.url || '', liked: false };
+      })
+    ];
+    if (elements.playlistSelect) elements.playlistSelect.innerHTML = playlistSources.map(source => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)} · ${escapeHtml(source.meta)}</option>`).join('');
+    renderPlaylistPicker();
     renderHomeCollections(playlists, artists);
     elements.connect?.classList.add('hidden'); elements.startPlaylist?.classList.remove('hidden');
   }
   function coverMarkup(imageUrl, fallback) {
     return imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" />` : `<span>${escapeHtml(fallback)}</span>`;
+  }
+  function playlistPickerCoverMarkup(source) {
+    return source.imageUrl ? `<img src="${escapeHtml(source.imageUrl)}" alt="" loading="lazy" />` : `<span class="${source.liked ? 'liked-playlist-icon' : ''}">${source.liked ? '♥' : '♪'}</span>`;
+  }
+  function closePlaylistPicker() {
+    if (!elements.playlistPickerMenu || !elements.playlistPickerTrigger) return;
+    elements.playlistPickerMenu.hidden = true;
+    elements.playlistPickerTrigger.setAttribute('aria-expanded', 'false');
+  }
+  function selectPlaylistSource(id) {
+    const source = playlistSources.find(item => item.id === id) || playlistSources[0];
+    if (!source) return;
+    if (elements.playlistSelect) elements.playlistSelect.value = source.id;
+    if (elements.playlistPickerCover) elements.playlistPickerCover.innerHTML = playlistPickerCoverMarkup(source);
+    if (elements.playlistPickerName) elements.playlistPickerName.textContent = source.name;
+    if (elements.playlistPickerMeta) elements.playlistPickerMeta.textContent = source.meta;
+    elements.playlistPickerMenu?.querySelectorAll('[data-playlist-source]').forEach(option => {
+      const selected = option.dataset.playlistSource === source.id;
+      option.classList.toggle('selected', selected);
+      option.setAttribute('aria-selected', String(selected));
+    });
+  }
+  function renderPlaylistPicker() {
+    if (!elements.playlistPickerMenu) return;
+    elements.playlistPickerMenu.innerHTML = playlistSources.map(source => `<button class="playlist-picker-option" type="button" role="option" data-playlist-source="${escapeHtml(source.id)}"><span class="playlist-option-cover" aria-hidden="true">${playlistPickerCoverMarkup(source)}</span><span class="playlist-option-copy"><strong>${escapeHtml(source.name)}</strong><small>${escapeHtml(source.meta)}</small></span><span class="playlist-option-check" aria-hidden="true">✓</span></button>`).join('');
+    selectPlaylistSource(elements.playlistSelect?.value || playlistSources[0]?.id);
   }
   function renderHomeCollections(playlists, artists) {
     const artistsRail = $('#artistsRail'); const playlistsRail = $('#playlistsRail');
@@ -453,8 +483,8 @@
         await beginSpotifyLogin();
         return;
       }
-      if (elements.playlistSelect && id !== LIKED_SONGS_VALUE) elements.playlistSelect.value = id;
-      const selectedName = elements.playlistSelect?.selectedOptions?.[0]?.textContent?.split(' · ')[0] || 'Deine Playlist';
+      if (elements.playlistSelect) selectPlaylistSource(id);
+      const selectedName = playlistSources.find(source => source.id === id)?.name || elements.playlistSelect?.selectedOptions?.[0]?.textContent?.split(' · ')[0] || 'Deine Playlist';
       if (elements.setupDescription) elements.setupDescription.textContent = `„${selectedName}“ wird vorbereitet …`;
       const [playerReady, tracks] = await Promise.all([
         prepareWebPlayer(),
@@ -579,6 +609,22 @@
   elements.heroConnect?.addEventListener('click', openPlayPage);
   elements.demo?.addEventListener('click', startDemo);
   elements.startPlaylist?.addEventListener('click', startPlaylistGame);
+  elements.playlistPickerTrigger?.addEventListener('click', () => {
+    if (!elements.playlistPickerMenu) return;
+    const open = elements.playlistPickerMenu.hidden;
+    elements.playlistPickerMenu.hidden = !open;
+    elements.playlistPickerTrigger.setAttribute('aria-expanded', String(open));
+  });
+  elements.playlistPickerMenu?.addEventListener('click', event => {
+    const option = event.target.closest('[data-playlist-source]');
+    if (!option) return;
+    selectPlaylistSource(option.dataset.playlistSource);
+    closePlaylistPicker();
+  });
+  document.addEventListener('click', event => {
+    if (elements.playlistPicker && !elements.playlistPicker.contains(event.target)) closePlaylistPicker();
+  });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') closePlaylistPicker(); });
   elements.play?.addEventListener('click', togglePreview);
   elements.next?.addEventListener('click', nextQuestion);
   elements.leave?.addEventListener('click', () => { stopAudio(); elements.game?.classList.add('hidden'); elements.setup?.parentElement.classList.remove('hidden'); });
