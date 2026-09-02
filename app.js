@@ -290,6 +290,7 @@
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
     makeWave();
     startRoundTimer();
+    void startRoundPlayback(track);
   }
   function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
   function timeExpired() { if (!game.answered) resolveQuestion(game.questions[game.index], null, false, true); }
@@ -323,6 +324,10 @@
     const now = audioContext.currentTime; const notes = [220, 277.18, 329.63, 440, 329.63, 277.18];
     notes.forEach((frequency, index) => { const osc = audioContext.createOscillator(), gain = audioContext.createGain(); osc.type = index % 2 ? 'triangle' : 'sine'; osc.frequency.value = frequency; gain.gain.setValueAtTime(.0001, now + index * .23); gain.gain.exponentialRampToValueAtTime(.07, now + index * .23 + .02); gain.gain.exponentialRampToValueAtTime(.0001, now + index * .23 + .22); osc.connect(gain).connect(audioContext.destination); osc.start(now + index * .23); osc.stop(now + index * .23 + .23); });
   }
+  function startDemoPlayback() {
+    playDemoTone(); elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing');
+    setTimeout(() => { elements.play.classList.remove('pause'); elements.vinyl.classList.remove('playing'); elements.waveform.classList.remove('playing'); }, 1400);
+  }
   async function playSpotifyTrack(track) {
     try {
       const questionKey = track.id || String(game.index);
@@ -339,8 +344,13 @@
       streamStopTimer = setTimeout(stopSpotifyPlayback, QUIZ_CLIP_MS);
     } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); }
   }
+  async function startRoundPlayback(track) {
+    if (isDemo()) return startDemoPlayback();
+    if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
+    await playSpotifyTrack(track);
+  }
   async function togglePreview() {
-    if (isDemo()) { playDemoTone(); elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing'); setTimeout(() => { elements.play.classList.remove('pause'); elements.vinyl.classList.remove('playing'); elements.waveform.classList.remove('playing'); }, 1400); return; }
+    if (isDemo()) return startDemoPlayback();
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
     if (streamStopTimer) return stopSpotifyPlayback();
     await playSpotifyTrack(game.questions[game.index]);
