@@ -110,7 +110,13 @@
     elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
     elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
     elements.playlistControl.classList.remove('disabled'); elements.playlistSelect.disabled = false;
-    elements.playlistSelect.innerHTML = playlists.length ? playlists.map(item => `<option value="${item.id}">${escapeHtml(item.name)} · ${item.tracks?.total ?? 0} Songs</option>`).join('') : '<option value="">Keine Playlist gefunden</option>';
+    // Spotify now exposes the count through `items` and retains `tracks` only
+    // for older API responses. Support both so valid playlists are not shown
+    // as empty in the selector.
+    elements.playlistSelect.innerHTML = playlists.length ? playlists.map(item => {
+      const trackTotal = item.items?.total ?? item.tracks?.total ?? 0;
+      return `<option value="${item.id}">${escapeHtml(item.name)} · ${trackTotal} Songs</option>`;
+    }).join('') : '<option value="">Keine Playlist gefunden</option>';
     elements.connect.classList.add('hidden'); elements.startPlaylist.classList.remove('hidden');
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
