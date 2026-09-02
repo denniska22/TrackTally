@@ -3,11 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#101018" />
+    <meta name="theme-color" content="#08101d" />
     <meta name="description" content="TrackTally – das private Musikquiz für deine Spotify-Playlists." />
     <title>TrackTally – Dein Spotify-Musikquiz</title>
     <link rel="preconnect" href="https://api.spotify.com" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dashboard.css" />
   </head>
   <body>
     <div class="noise" aria-hidden="true"></div>
@@ -31,8 +32,8 @@
           <h1>Kennt ihr euch<br /><em>wirklich</em> aus?</h1>
           <p class="lead">Erstelle in Sekunden ein Musikquiz aus deinen Spotify-Playlists. Hör rein, rate mit und finde heraus, wer in eurer Runde die besten Ohren hat.</p>
           <div class="hero-actions">
-            <button class="button button-primary" id="heroConnect">Mit Spotify spielen <span aria-hidden="true">↗</span></button>
-            <button class="text-button" id="demoStart">Demo-Runde starten <span aria-hidden="true">→</span></button>
+            <button class="button button-primary" id="legacyHeroConnect">Mit Spotify spielen <span aria-hidden="true">↗</span></button>
+            <button class="text-button" id="legacyDemoStart">Demo-Runde starten <span aria-hidden="true">→</span></button>
           </div>
           <div class="micro-proof"><span class="stacked-avatars" aria-hidden="true"><b>J</b><b>L</b><b>M</b></span> Für deine Clique statt für irgendeinen Algorithmus</div>
         </div>
@@ -62,6 +63,40 @@
         </ol>
       </section>
 
+      <section class="dashboard-feed wrap" aria-label="Musik entdecken">
+        <section class="browse-block" aria-labelledby="artistsHeading">
+          <div class="browse-heading"><h2 id="artistsHeading"><span aria-hidden="true">♙</span> Artists</h2><a href="#setup">Alle anzeigen <b>›</b></a></div>
+          <div class="card-rail" tabindex="0">
+            <article class="media-card"><div class="tile-art artist-art art-ink"><span>VIBE</span></div><div class="tile-copy"><strong>Late Night</strong><small>Dein Mix</small></div></article>
+            <article class="media-card"><div class="tile-art artist-art art-lime"><span>♪</span></div><div class="tile-copy"><strong>Dancefloor</strong><small>Dein Mix</small></div></article>
+            <article class="media-card"><div class="tile-art artist-art art-orbit"><span>✦</span></div><div class="tile-copy"><strong>Indie Now</strong><small>Dein Mix</small></div></article>
+            <article class="media-card"><div class="tile-art artist-art art-cross"><span>+</span></div><div class="tile-copy"><strong>Rap Radar</strong><small>Dein Mix</small></div></article>
+            <article class="media-card"><div class="tile-art artist-art art-cream"><span>TT</span></div><div class="tile-copy"><strong>All-time Favs</strong><small>Dein Mix</small></div></article>
+          </div>
+        </section>
+
+        <section class="browse-block" id="playlists" aria-labelledby="playlistsHeading">
+          <div class="browse-heading"><h2 id="playlistsHeading"><span aria-hidden="true">☷</span> Playlists</h2><a href="#setup">Spotify verbinden <b>›</b></a></div>
+          <div class="card-rail" tabindex="0">
+            <article class="media-card"><div class="tile-art playlist-art art-sunset"><span>quiz<br>mix</span></div><div class="tile-copy"><strong>Quiz-Start</strong><small>Für eure Runde</small></div></article>
+            <article class="media-card"><div class="tile-art playlist-art art-type"><span>FAVORITES<br>ON REPEAT</span></div><div class="tile-copy"><strong>Lieblingssongs</strong><small>Deine gespeicherten Titel</small></div></article>
+            <article class="media-card"><div class="tile-art playlist-art art-flash"><span>⚡</span></div><div class="tile-copy"><strong>Party Picks</strong><small>Für die Clique</small></div></article>
+            <article class="media-card"><div class="tile-art playlist-art art-mosaic"><span>THE<br>MIX</span></div><div class="tile-copy"><strong>Alles gemischt</strong><small>Überraschungen garantiert</small></div></article>
+            <article class="media-card"><div class="tile-art playlist-art art-night"><span>◒</span></div><div class="tile-copy"><strong>After Hours</strong><small>Nachts am besten</small></div></article>
+          </div>
+        </section>
+
+        <section class="browse-block" aria-labelledby="ideasHeading">
+          <div class="browse-heading"><h2 id="ideasHeading"><span aria-hidden="true">✧</span> Quiz-Ideen</h2><a href="#setup">Loslegen <b>›</b></a></div>
+          <div class="idea-rail" tabindex="0">
+            <article class="idea-card"><strong>Late Night Vibes</strong><p>Stille Tracks, große Gefühle und Songs für lange Nächte.</p></article>
+            <article class="idea-card"><strong>90er gegen Heute</strong><p>Wer kennt die Hits zwischen CD-Player und TikTok?</p></article>
+            <article class="idea-card"><strong>Party ohne Skip</strong><p>Nur Tracks, die alle sofort mitsingen können.</p></article>
+            <article class="idea-card"><strong>Guilty Pleasures</strong><p>Die Songs, die niemand zugibt – aber alle kennt.</p></article>
+          </div>
+        </section>
+      </section>
+
       <section class="play-area wrap" id="setup">
         <div class="setup-panel" id="setupPanel">
           <div class="panel-kicker">DEIN QUIZ</div>
@@ -81,9 +116,11 @@
           <p class="helper">Für vollständige Titel benötigt jede:r Mitspieler:in Spotify Premium. Die Wiedergabe bleibt im eigenen Spotify-Konto.</p>
         </div>
         <aside class="privacy-note" id="privat">
-          <span class="privacy-icon">⌁</span><p class="eyebrow">NUR FÜR EUCH</p><h3>Deine Playlist bleibt deine Playlist.</h3><p>TrackTally fragt nur die Berechtigungen ab, die zum Erstellen eures Quiz nötig sind. Es veröffentlicht nichts und speichert keine Musikdaten auf einem Server.</p>
-          <ul><li>PKCE-Login ohne Client Secret im Browser</li><li>Keine Posts, keine Playlist-Änderungen</li><li>Zum Teilen reicht ein Link zu dieser Seite</li></ul>
+          <span class="privacy-icon">♧</span><p class="eyebrow">PLAY WITH FRIENDS</p><h3>Spielt eine Runde zusammen.</h3><p>Wähle deine Playlist, starte das Quiz und schicke den Link in eure Gruppe. Jede:r hört über das eigene Spotify-Konto.</p>
+          <div class="room-join"><span>○ ○ ○ ○ ○ ○</span><button type="button" disabled>Beitreten</button></div>
+          <ul><li>Deine Daten bleiben in deinem Browser</li><li>Keine Playlist-Änderungen</li><li>Perfekt für euren nächsten Musikabend</li></ul>
         </aside>
+        <div class="play-dock"><button class="button button-primary" id="heroConnect"><span aria-hidden="true">▷</span> Mit Spotify spielen</button><button class="dock-demo" id="demoStart">Demo starten</button></div>
       </section>
 
       <section class="game-shell wrap hidden" id="gameShell" aria-live="polite">
