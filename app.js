@@ -69,7 +69,8 @@
   }
   function startRoundTimer() {
     clearRoundTimer();
-    const deadline = Date.now() + ROUND_TIME_MS;
+    game.roundStartedAt = Date.now();
+    const deadline = game.roundStartedAt + ROUND_TIME_MS;
     updateRoundTimer(ROUND_TIME_MS);
     roundTimerId = setInterval(() => {
       const remaining = Math.max(0, deadline - Date.now());
@@ -295,7 +296,7 @@
   function resolveQuestion(track, button, right, timedOut) {
     if (game.answered) return; game.answered = true; clearRoundTimer(); stopAudio();
     elements.answers.querySelectorAll('.answer').forEach(item => { item.disabled = true; if (item.dataset.correct === 'true') item.classList.add('correct'); });
-    if (right) { game.correct++; game.streak++; game.bestStreak = Math.max(game.bestStreak, game.streak); const points = 100 + Math.min(game.streak - 1, 5) * 25; game.score += points; elements.feedback.innerHTML = `<strong>Treffer! +${points} Punkte</strong> &nbsp; „${escapeHtml(track.name)}“` ; }
+    if (right) { game.correct++; game.streak++; game.bestStreak = Math.max(game.bestStreak, game.streak); const elapsedTenths = Math.floor((Date.now() - game.roundStartedAt) / 100); const points = Math.max(0, 100 - elapsedTenths); game.score += points; elements.feedback.innerHTML = `<strong>Treffer! +${points} Punkte</strong> &nbsp; „${escapeHtml(track.name)}“` ; }
     else { if (button) button.classList.add('wrong'); game.streak = 0; elements.feedback.innerHTML = timedOut ? `Zeit abgelaufen! Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}` : `Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}`; }
     elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak; elements.feedback.classList.remove('hidden'); elements.next.textContent = game.index + 1 === game.rounds ? 'Ergebnis ansehen →' : 'Nächste Runde →'; elements.next.classList.remove('hidden');
   }
