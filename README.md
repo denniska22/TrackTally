@@ -19,6 +19,7 @@ Die Seite nutzt ausschließlich diese Spotify-Berechtigungen:
 - `playlist-read-collaborative`
 - `user-read-private`
 - `user-read-email`
+- `user-library-read`
 - `streaming`
 - `user-modify-playback-state`
 
