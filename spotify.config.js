@@ -9,6 +9,6 @@
 window.TRACKTALLY_CONFIG = {
   clientId: "4f5e3a37204446b683eecf6ccc47dff5",
   // Diese Adresse muss im Spotify Developer Dashboard exakt identisch hinterlegt sein.
-  redirectUri: "https://nico.github.io/tracktally/"
+  redirectUri: "https://denniska22.github.io/TrackTally/"
 };
 
