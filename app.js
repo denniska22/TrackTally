@@ -2,8 +2,15 @@
 (function () {
   'use strict';
 
-  const CONFIG = window.TRACKTALLY_CONFIG || {};
-  const PLACEHOLDER_ID = '4f5e3a37204446b683eecf6ccc47dff5';
+  // spotify.config.js may be blocked by privacy extensions or restrictive
+  // browser policies. Keep the public PKCE client ID as a reliable fallback.
+  // A Spotify client ID is intentionally public; never place a client secret here.
+  const DEFAULT_CONFIG = {
+    clientId: '4f5e3a37204446b683eecf6ccc47dff5',
+    redirectUri: window.location.origin + window.location.pathname
+  };
+  const CONFIG = { ...DEFAULT_CONFIG, ...(window.TRACKTALLY_CONFIG || {}) };
+  const PLACEHOLDER_ID = 'PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE';
   const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private'];
   const DEMO_TRACKS = [
     { name: 'Electric Summer', artists: [{ name: 'Neon Coast' }], album: { name: 'Poolside FM', images: [] }, preview_url: null, clue: 'Synthpop · 2024' },
