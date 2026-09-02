@@ -240,7 +240,7 @@
   function startDemo() { startGame('demo', DEMO_TRACKS); }
   function startGame(mode, tracks) {
     const count = Math.min(game.rounds, tracks.length);
-    game = { mode, allTracks: tracks, questions: shuffle(tracks).slice(0, count), index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: count };
+    game = { mode, allTracks: tracks, questions: shuffle(tracks).slice(0, count), clipStarts: {}, index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: count };
     elements.results.classList.add('hidden'); elements.setup.parentElement.classList.add('hidden'); elements.game.classList.remove('hidden');
     renderQuestion(); window.scrollTo({ top: elements.game.offsetTop - 20, behavior: 'smooth' });
   }
@@ -248,7 +248,7 @@
     const track = game.questions[game.index]; game.answered = false;
     stopAudio(); elements.answers.innerHTML = ''; elements.feedback.classList.add('hidden'); elements.next.classList.add('hidden');
     elements.round.textContent = `RUNDE ${game.index + 1} / ${game.rounds}`; elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak;
-    elements.clue.textContent = isDemo() ? track.clue : 'Vollständiger Spotify-Titel · du hast einen Versuch.';
+    elements.clue.textContent = isDemo() ? track.clue : 'Zufälliger Song-Ausschnitt · du hast einen Versuch.';
     const distractors = shuffle(game.allTracks.filter(item => item !== track && item.artists?.[0]?.name !== track.artists?.[0]?.name)).slice(0, 3);
     const options = shuffle([track, ...distractors]);
     options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
@@ -288,10 +288,16 @@
   }
   async function playSpotifyTrack(track) {
     try {
+      const questionKey = track.id || String(game.index);
+      if (game.clipStarts[questionKey] === undefined) {
+        const latestStart = Math.max(0, (track.duration_ms || 0) - QUIZ_CLIP_MS - 2_000);
+        const earliestStart = latestStart > 10_000 ? 5_000 : 0;
+        game.clipStarts[questionKey] = earliestStart + Math.floor(Math.random() * (latestStart - earliestStart + 1));
+      }
       await webPlayer.activateElement?.();
       await spotifyRequest('/me/player', { method: 'PUT', body: { device_ids: [webPlayerDeviceId], play: false } });
       await new Promise(resolve => setTimeout(resolve, 350));
-      await spotifyRequest(`/me/player/play?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: 0 } });
+      await spotifyRequest(`/me/player/play?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: game.clipStarts[questionKey] } });
       elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing');
       streamStopTimer = setTimeout(stopSpotifyPlayback, QUIZ_CLIP_MS);
     } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); }
