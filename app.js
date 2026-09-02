@@ -22,6 +22,8 @@
   const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'user-library-read', 'user-top-read', 'user-follow-read', 'streaming', 'user-modify-playback-state'];
   const GAME_SCOPES = ['streaming', 'user-modify-playback-state', 'user-library-read', 'user-top-read', 'user-follow-read'];
   const QUIZ_CLIP_MS = 10_000;
+  const SPOTIFY_LOGIN_COOLDOWN_MS = 30_000;
+  const SPOTIFY_LOGIN_COOLDOWN_KEY = 'tracktally_spotify_login_cooldown_until';
   const ROUND_TIME_MS = 10_000;
   const LIKED_SONGS_VALUE = '__liked_songs__';
   const DEMO_TRACKS = [
@@ -139,8 +141,47 @@
     const bytes = crypto.getRandomValues(new Uint8Array(length));
     return [...bytes].map(byte => characters[byte % characters.length]).join('');
   }
-  async function beginSpotifyLogin() {
+  let spotifyLoginCooldownTimer;
+  function spotifyLoginCooldownRemaining() {
+    const cooldownUntil = Number(localStorage.getItem(SPOTIFY_LOGIN_COOLDOWN_KEY));
+    return Number.isFinite(cooldownUntil) ? Math.max(0, cooldownUntil - Date.now()) : 0;
+  }
+  function syncSpotifyLoginCooldownButton() {
+    const remainingMs = spotifyLoginCooldownRemaining();
+    if (!elements.headerConnect) return remainingMs > 0;
+    window.clearTimeout(spotifyLoginCooldownTimer);
+    if (!remainingMs) {
+      localStorage.removeItem(SPOTIFY_LOGIN_COOLDOWN_KEY);
+      elements.headerConnect.disabled = false;
+      elements.headerConnect.removeAttribute('aria-label');
+      if (elements.headerConnect.dataset.spotifyCooldownLabel) {
+        elements.headerConnect.textContent = elements.headerConnect.dataset.spotifyCooldownLabel;
+        delete elements.headerConnect.dataset.spotifyCooldownLabel;
+      }
+      return false;
+    }
+    if (!elements.headerConnect.dataset.spotifyCooldownLabel) {
+      elements.headerConnect.dataset.spotifyCooldownLabel = elements.headerConnect.textContent;
+    }
+    const seconds = Math.ceil(remainingMs / 1000);
+    elements.headerConnect.disabled = true;
+    elements.headerConnect.textContent = `Bitte warten (${seconds} s)`;
+    elements.headerConnect.setAttribute('aria-label', `Bitte noch ${seconds} Sekunden warten`);
+    spotifyLoginCooldownTimer = window.setTimeout(syncSpotifyLoginCooldownButton, Math.min(1000, remainingMs));
+    return true;
+  }
+  function startSpotifyLoginCooldown() {
+    localStorage.setItem(SPOTIFY_LOGIN_COOLDOWN_KEY, String(Date.now() + SPOTIFY_LOGIN_COOLDOWN_MS));
+    syncSpotifyLoginCooldownButton();
+  }
+  function clearSpotifyLoginCooldown() {
+    localStorage.removeItem(SPOTIFY_LOGIN_COOLDOWN_KEY);
+    window.clearTimeout(spotifyLoginCooldownTimer);
+  }
+  async function beginSpotifyLogin({ useCooldown = false } = {}) {
     if (!configured()) return showConfigModal();
+    if (useCooldown && syncSpotifyLoginCooldownButton()) return;
+    if (useCooldown) startSpotifyLoginCooldown();
     if (window.location.pathname.endsWith('/play.html')) {
       sessionStorage.setItem('tracktally_return_to_play', 'true');
       const artistId = artistIdFromUrl();
@@ -171,6 +212,7 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error_description || data.error || 'Token konnte nicht geladen werden');
       setToken({ ...data, expires_at: Date.now() + data.expires_in * 1000 });
+      clearSpotifyLoginCooldown();
       const returnToPlay = sessionStorage.getItem('tracktally_return_to_play') === 'true';
       const artistQuizId = sessionStorage.getItem('tracktally_artist_quiz') || '';
       const playlistQuizId = sessionStorage.getItem('tracktally_playlist_quiz') || '';
@@ -663,7 +705,12 @@
   function hideHomeNotice() { if (!elements.connectionNotice) return; elements.connectionNotice.classList.add('hidden'); elements.connectionNotice.classList.remove('error'); }
   function showMessage(message) {
     if (elements.setupDescription) { elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; return; }
-    if (elements.headerConnect) { elements.headerConnect.textContent = 'Erneut verbinden'; elements.headerConnect.classList.remove('connected'); elements.headerConnect.classList.add('connection-error'); elements.headerConnect.disabled = false; }
+    if (elements.headerConnect) {
+      elements.headerConnect.textContent = 'Erneut verbinden';
+      elements.headerConnect.classList.remove('connected');
+      elements.headerConnect.classList.add('connection-error');
+      if (!syncSpotifyLoginCooldownButton()) elements.headerConnect.disabled = false;
+    }
     showHomeNotice(message, 'error');
   }
   async function copy(value, successElement) { try { await navigator.clipboard.writeText(value); const previous = successElement.textContent; successElement.textContent = 'Kopiert ✓'; setTimeout(() => successElement.textContent = previous, 1800); } catch { window.prompt('Kopiere diesen Text:', value); } }
@@ -672,7 +719,7 @@
 
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
-  elements.headerConnect?.addEventListener('click', beginSpotifyLogin);
+  elements.headerConnect?.addEventListener('click', () => beginSpotifyLogin({ useCooldown: true }));
   elements.heroConnect?.addEventListener('click', openPlayPage);
   elements.demo?.addEventListener('click', startDemo);
   elements.startPlaylist?.addEventListener('click', startPlaylistGame);
@@ -705,7 +752,8 @@
   setPlaybackVolume(Math.round(playbackVolume * 100));
   elements.leave?.addEventListener('click', clearRoundTimer);
   elements.backToSetup?.addEventListener('click', clearRoundTimer);
-  handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
+  handleAuthorizationReturn().then(returned => { syncSpotifyLoginCooldownButton(); if (!returned && tokenData()) loadSpotifyProfile(); });
   refreshHomeRailNavigation();
   makeWave();
 })();
+
