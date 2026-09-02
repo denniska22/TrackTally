@@ -34,7 +34,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual').querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
+    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual').querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
   };
   const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -44,6 +44,7 @@
   let webPlayerReady;
   let spotifyPlaying = false;
   let roundTimerId;
+  let playbackVolume = Math.max(0, Math.min(1, Number(localStorage.getItem('tracktally_volume') ?? 65) / 100));
   const artistGenreCache = new Map();
 
   function appRootUrl() {
@@ -90,6 +91,13 @@
   function setRounds(value) {
     game.rounds = Number(value);
     document.querySelectorAll('[data-rounds]').forEach(btn => btn.classList.toggle('active', Number(btn.dataset.rounds) === game.rounds));
+  }
+  function setPlaybackVolume(value) {
+    playbackVolume = Math.max(0, Math.min(1, Number(value) / 100));
+    localStorage.setItem('tracktally_volume', String(Math.round(playbackVolume * 100)));
+    if (elements.volume) elements.volume.value = String(Math.round(playbackVolume * 100));
+    elements.audio.volume = playbackVolume;
+    if (webPlayer) webPlayer.setVolume(playbackVolume).catch(() => {});
   }
   document.querySelectorAll('[data-rounds]').forEach(btn => btn.addEventListener('click', () => setRounds(btn.dataset.rounds)));
 
@@ -221,7 +229,7 @@
         webPlayer = new window.Spotify.Player({
           name: 'TrackTally Quiz Player',
           getOAuthToken: async callback => callback(await freshToken()),
-          volume: 0.65
+          volume: playbackVolume
         });
         webPlayer.addListener('ready', ({ device_id }) => {
           webPlayerDeviceId = device_id;
@@ -393,7 +401,7 @@
   function playDemoTone() {
     audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
     const now = audioContext.currentTime; const notes = [220, 277.18, 329.63, 440, 329.63, 277.18];
-    notes.forEach((frequency, index) => { const osc = audioContext.createOscillator(), gain = audioContext.createGain(); osc.type = index % 2 ? 'triangle' : 'sine'; osc.frequency.value = frequency; gain.gain.setValueAtTime(.0001, now + index * .23); gain.gain.exponentialRampToValueAtTime(.07, now + index * .23 + .02); gain.gain.exponentialRampToValueAtTime(.0001, now + index * .23 + .22); osc.connect(gain).connect(audioContext.destination); osc.start(now + index * .23); osc.stop(now + index * .23 + .23); });
+    notes.forEach((frequency, index) => { const osc = audioContext.createOscillator(), gain = audioContext.createGain(); osc.type = index % 2 ? 'triangle' : 'sine'; osc.frequency.value = frequency; gain.gain.setValueAtTime(.0001, now + index * .23); gain.gain.exponentialRampToValueAtTime(Math.max(.0001, .07 * playbackVolume), now + index * .23 + .02); gain.gain.exponentialRampToValueAtTime(.0001, now + index * .23 + .22); osc.connect(gain).connect(audioContext.destination); osc.start(now + index * .23); osc.stop(now + index * .23 + .23); });
   }
   function startDemoPlayback() {
     playDemoTone(); elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing');
@@ -450,6 +458,8 @@
   elements.closeModal?.addEventListener('click', () => elements.modal.classList.add('hidden'));
   elements.modal?.addEventListener('click', event => { if (event.target === elements.modal) elements.modal.classList.add('hidden'); });
   elements.copyRedirect?.addEventListener('click', () => copy(redirectUri(), elements.copyRedirect));
+  elements.volume?.addEventListener('input', event => setPlaybackVolume(event.target.value));
+  setPlaybackVolume(Math.round(playbackVolume * 100));
   elements.leave.addEventListener('click', clearRoundTimer);
   elements.backToSetup.addEventListener('click', clearRoundTimer);
   handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
