@@ -31,6 +31,7 @@
     </header>
     <div class="connection-notice wrap hidden" id="connectionNotice" role="status"></div>
 
+
     <main id="top">
       <section class="hero wrap">
         <div class="hero-copy">
@@ -57,7 +58,9 @@
         </div>
       </section>
 
+
       <section class="ticker" aria-label="Spielmodi"><div><span>PLAYLIST QUIZ</span><b>✦</b><span>FREUNDESABEND</span><b>✦</b><span>FAVORITEN TESTEN</span><b>✦</b><span>PLAYLIST QUIZ</span><b>✦</b><span>FREUNDESABEND</span><b>✦</b></div></section>
+
 
       <section class="how wrap" id="so-funktionierts">
         <div class="section-intro"><p class="eyebrow">Drei Klicks bis zum ersten Song</p><h2>Der gute Teil eurer Musikbibliothek wird zum Spiel.</h2></div>
@@ -67,6 +70,7 @@
           <li><span class="step-number">03</span><h3>Reinhören &amp; punkten</h3><p>Kurze Clips, schnelle Antworten und eine verdiente Krone.</p></li>
         </ol>
       </section>
+
 
       <section class="dashboard-feed wrap" aria-label="Musik entdecken">
         <section class="browse-block" aria-labelledby="artistsHeading">
@@ -84,6 +88,7 @@
           </div>
         </section>
 
+
         <section class="browse-block" id="playlists" aria-labelledby="playlistsHeading">
           <div class="browse-heading"><h2 id="playlistsHeading"><span aria-hidden="true">☷</span> Playlists</h2><a href="play.html">Zum Quiz <b>›</b></a></div>
           <div class="card-rail" id="playlistsRail" tabindex="0">
@@ -99,7 +104,9 @@
           </div>
         </section>
 
+
       </section>
+
 
       <section class="home-play-callout wrap">
         <div><p class="eyebrow">DEINE PLAYLIST. EURE RUNDE.</p><h2>Wer kennt die Songs wirklich?</h2><p>Wähle im Quizmodus deine Playlist und fordert euch heraus.</p></div>
@@ -107,10 +114,12 @@
       </section>
     </main>
 
+
     <footer class="site-footer wrap"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>track<span>tally</span></span></div><p>Ein privates Quizprojekt, nicht mit Spotify AB verbunden oder von Spotify unterstützt.</p><a href="https://developer.spotify.com/" target="_blank" rel="noreferrer">Spotify for Developers ↗</a></footer>
+
 
     <div class="modal-backdrop hidden" id="configModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="config-modal"><button class="close-modal" id="closeModal" aria-label="Dialog schließen">×</button><p class="eyebrow">EINMALIGE EINRICHTUNG</p><h2 id="modalTitle">Spotify-App verbinden</h2><p>Für den echten Login braucht TrackTally eine Spotify Client-ID. Die Erstellung ist kostenlos und dauert nur wenige Minuten.</p><ol><li>Erstelle im <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a> eine App.</li><li>Trage die Adresse dieser Seite als Redirect URI ein.</li><li>Kopiere die Client-ID in <code>spotify.config.js</code>.</li></ol><div class="redirect-copy"><span>Redirect URI</span><code id="redirectUri"></code><button id="copyRedirect">Kopieren</button></div><p class="modal-small">Anschließend Seite neu laden und erneut auf „Spotify verbinden“ klicken.</p></div></div>
     <script src="spotify.config.js"></script>
-    <script src="app.js?v=spotify-home-connection-20260902-2"></script>
+    <script src="app.js?v=restore-20260902-1"></script>
   </body>
 </html>
