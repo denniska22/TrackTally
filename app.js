@@ -7,7 +7,7 @@
   // A Spotify client ID is intentionally public; never place a client secret here.
   const DEFAULT_CONFIG = {
     clientId: '4f5e3a37204446b683eecf6ccc47dff5',
-    redirectUri: window.location.origin + window.location.pathname
+    redirectUri: appRootUrl()
   };
   const CONFIG = {
     clientId: window.TRACKTALLY_CONFIG?.clientId || DEFAULT_CONFIG.clientId,
@@ -46,7 +46,14 @@
   let roundTimerId;
   const artistGenreCache = new Map();
 
-  function redirectUri() { return CONFIG.redirectUri || window.location.origin + window.location.pathname; }
+  function appRootUrl() {
+    const path = window.location.pathname;
+    const rootPath = /\/[^/]+\.[^/]+$/.test(path) ? path.slice(0, path.lastIndexOf('/') + 1) : path;
+    return window.location.origin + rootPath;
+  }
+  function playPageUrl() { return `${appRootUrl()}play.html`; }
+  function redirectUri() { return CONFIG.redirectUri || appRootUrl(); }
+  function openPlayPage() { window.location.assign(playPageUrl()); }
   function configured() { return CONFIG.clientId && CONFIG.clientId !== PLACEHOLDER_ID; }
   function tokenData() { try { return JSON.parse(sessionStorage.getItem('tracktally_token') || 'null'); } catch { return null; } }
   function setToken(data) { sessionStorage.setItem('tracktally_token', JSON.stringify(data)); }
@@ -98,6 +105,8 @@
   }
   async function beginSpotifyLogin() {
     if (!configured()) return showConfigModal();
+    if (window.location.pathname.endsWith('/play.html')) sessionStorage.setItem('tracktally_return_to_play', 'true');
+    else sessionStorage.removeItem('tracktally_return_to_play');
     const verifier = randomString(96), state = randomString(22), challenge = await sha256(verifier);
     sessionStorage.setItem('tracktally_verifier', verifier);
     sessionStorage.setItem('tracktally_state', state);
@@ -108,14 +117,17 @@
     const params = new URLSearchParams(location.search);
     const code = params.get('code'), state = params.get('state'), error = params.get('error');
     if (!code && !error) return false;
-    if (error) { showMessage(`Spotify-Login abgebrochen: ${error}.`); cleanUrl(); return true; }
+    if (error) { sessionStorage.removeItem('tracktally_return_to_play'); showMessage(`Spotify-Login abgebrochen: ${error}.`); cleanUrl(); return true; }
     if (state !== sessionStorage.getItem('tracktally_state')) { showMessage('Der Spotify-Login konnte aus Sicherheitsgründen nicht bestätigt werden. Bitte erneut versuchen.'); cleanUrl(); return true; }
     try {
       const response = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: CONFIG.clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri(), code_verifier: sessionStorage.getItem('tracktally_verifier') || '' }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error_description || data.error || 'Token konnte nicht geladen werden');
       setToken({ ...data, expires_at: Date.now() + data.expires_in * 1000 });
+      const returnToPlay = sessionStorage.getItem('tracktally_return_to_play') === 'true';
+      sessionStorage.removeItem('tracktally_return_to_play');
       cleanUrl();
+      if (returnToPlay && !window.location.pathname.endsWith('/play.html')) { window.location.replace(playPageUrl()); return true; }
       await loadSpotifyProfile();
     } catch (error) { showMessage(`Spotify-Verbindung fehlgeschlagen: ${error.message}`); cleanUrl(); }
     return true;
@@ -424,7 +436,20 @@
   function showMessage(message) { elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; }
   async function copy(value, successElement) { try { await navigator.clipboard.writeText(value); const previous = successElement.textContent; successElement.textContent = 'Kopiert ✓'; setTimeout(() => successElement.textContent = previous, 1800); } catch { window.prompt('Kopiere diesen Text:', value); } }
 
-  elements.connect.addEventListener('click', beginSpotifyLogin); elements.headerConnect.addEventListener('click', beginSpotifyLogin); elements.heroConnect.addEventListener('click', beginSpotifyLogin); elements.demo.addEventListener('click', startDemo); elements.startPlaylist.addEventListener('click', startPlaylistGame); elements.play.addEventListener('click', togglePreview); elements.next.addEventListener('click', nextQuestion); elements.leave.addEventListener('click', () => { stopAudio(); elements.game.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); }); elements.playAgain.addEventListener('click', () => startGame(game.mode, game.allTracks)); elements.backToSetup.addEventListener('click', () => { elements.results.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); window.scrollTo({ top: elements.setup.offsetTop - 50, behavior: 'smooth' }); }); elements.share.addEventListener('click', () => copy(window.location.href, elements.share)); elements.closeModal.addEventListener('click', () => elements.modal.classList.add('hidden')); elements.modal.addEventListener('click', event => { if (event.target === elements.modal) elements.modal.classList.add('hidden'); }); elements.copyRedirect.addEventListener('click', () => copy(redirectUri(), elements.copyRedirect));
+  elements.connect?.addEventListener('click', beginSpotifyLogin);
+  elements.headerConnect?.addEventListener('click', beginSpotifyLogin);
+  elements.heroConnect?.addEventListener('click', openPlayPage);
+  elements.demo?.addEventListener('click', startDemo);
+  elements.startPlaylist?.addEventListener('click', startPlaylistGame);
+  elements.play?.addEventListener('click', togglePreview);
+  elements.next?.addEventListener('click', nextQuestion);
+  elements.leave?.addEventListener('click', () => { stopAudio(); elements.game.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); });
+  elements.playAgain?.addEventListener('click', () => startGame(game.mode, game.allTracks));
+  elements.backToSetup?.addEventListener('click', () => { elements.results.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); window.scrollTo({ top: elements.setup.offsetTop - 50, behavior: 'smooth' }); });
+  elements.share?.addEventListener('click', () => copy(window.location.href, elements.share));
+  elements.closeModal?.addEventListener('click', () => elements.modal.classList.add('hidden'));
+  elements.modal?.addEventListener('click', event => { if (event.target === elements.modal) elements.modal.classList.add('hidden'); });
+  elements.copyRedirect?.addEventListener('click', () => copy(redirectUri(), elements.copyRedirect));
   elements.leave.addEventListener('click', clearRoundTimer);
   elements.backToSetup.addEventListener('click', clearRoundTimer);
   handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
