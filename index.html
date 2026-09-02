@@ -76,7 +76,10 @@
             <article class="media-card"><div class="tile-art artist-art art-cross"><span>+</span></div><div class="tile-copy"><strong>Rap Radar</strong><small>Dein Mix</small></div></article>
             <article class="media-card"><div class="tile-art artist-art art-cream"><span>TT</span></div><div class="tile-copy"><strong>All-time Favs</strong><small>Dein Mix</small></div></article>
           </div>
-          <label class="rail-control" for="artistsRailSlider"><span class="sr-only">Weitere Artists anzeigen</span><input id="artistsRailSlider" type="range" min="0" max="0" value="0" aria-label="Weitere Artists anzeigen" /></label>
+          <div class="rail-nav" aria-label="Artist-Liste navigieren">
+            <button class="rail-arrow rail-arrow-previous" id="artistsRailPrevious" type="button" aria-label="Vorherige Artists anzeigen" hidden>‹</button>
+            <button class="rail-arrow rail-arrow-next" id="artistsRailNext" type="button" aria-label="Weitere Artists anzeigen">›</button>
+          </div>
         </section>
 
         <section class="browse-block" id="playlists" aria-labelledby="playlistsHeading">
@@ -88,7 +91,10 @@
             <article class="media-card"><div class="tile-art playlist-art art-mosaic"><span>THE<br>MIX</span></div><div class="tile-copy"><strong>Alles gemischt</strong><small>Überraschungen garantiert</small></div></article>
             <article class="media-card"><div class="tile-art playlist-art art-night"><span>◒</span></div><div class="tile-copy"><strong>After Hours</strong><small>Nachts am besten</small></div></article>
           </div>
-          <label class="rail-control" for="playlistsRailSlider"><span class="sr-only">Weitere Playlists anzeigen</span><input id="playlistsRailSlider" type="range" min="0" max="0" value="0" aria-label="Weitere Playlists anzeigen" /></label>
+          <div class="rail-nav" aria-label="Playlist-Liste navigieren">
+            <button class="rail-arrow rail-arrow-previous" id="playlistsRailPrevious" type="button" aria-label="Vorherige Playlists anzeigen" hidden>‹</button>
+            <button class="rail-arrow rail-arrow-next" id="playlistsRailNext" type="button" aria-label="Weitere Playlists anzeigen">›</button>
+          </div>
         </section>
 
       </section>
