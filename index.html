@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="personalized.css" />
+    <link rel="stylesheet" href="volume.css" />
   </head>
   <body>
     <div class="noise" aria-hidden="true"></div>
@@ -131,7 +132,7 @@
             <div class="track-visual" id="trackVisual"><div class="vinyl"><span></span></div><div class="visual-glow"></div><div class="question-mark">?</div></div>
             <p class="game-prompt">WELCHER SONG IST DAS?</p>
             <p class="track-clue" id="trackClue">Hör genau hin – du hast einen Versuch.</p>
-            <div class="player-row"><button class="play-button" id="playPreview" aria-label="Wiedergabe ist während der Runde aktiviert" disabled><span class="play-triangle"></span></button><div class="waveform" id="waveform" aria-hidden="true"></div><span class="preview-time" id="previewTime">0:00</span></div>
+            <div class="player-row"><button class="play-button" id="playPreview" aria-label="Wiedergabe ist während der Runde aktiviert" disabled><span class="play-triangle"></span></button><div class="waveform" id="waveform" aria-hidden="true"></div><label class="volume-control" for="volumeRange"><span aria-hidden="true">🔊</span><input id="volumeRange" type="range" min="0" max="100" value="65" aria-label="Lautstärke" /></label><span class="preview-time" id="previewTime">0:00</span></div>
             <audio id="previewAudio" preload="none"></audio>
             <div class="answer-grid" id="answerGrid"></div>
             <div class="answer-feedback hidden" id="answerFeedback"></div>
