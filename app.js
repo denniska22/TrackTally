@@ -70,6 +70,7 @@
   function startRoundTimer() {
     clearRoundTimer();
     game.roundStartedAt = Date.now();
+    elements.answers.querySelectorAll('.answer').forEach(button => { button.disabled = false; });
     const deadline = game.roundStartedAt + ROUND_TIME_MS;
     updateRoundTimer(ROUND_TIME_MS);
     roundTimerId = setInterval(() => {
@@ -286,10 +287,10 @@
     elements.clue.textContent = isDemo() ? track.clue : 'Zufälliger Song-Ausschnitt · du hast einen Versuch.';
     const distractors = shuffle(game.allTracks.filter(item => item !== track && item.artists?.[0]?.name !== track.artists?.[0]?.name)).slice(0, 3);
     const options = shuffle([track, ...distractors]);
-    options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
+    options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.disabled = true; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
     makeWave();
-    startRoundTimer();
+    updateRoundTimer(ROUND_TIME_MS);
     void startRoundPlayback(track);
   }
   function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
@@ -342,12 +343,14 @@
       await spotifyRequest(`/me/player/play?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: game.clipStarts[questionKey] } });
       elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing');
       streamStopTimer = setTimeout(stopSpotifyPlayback, QUIZ_CLIP_MS);
-    } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); }
+      return true;
+    } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); return false; }
   }
   async function startRoundPlayback(track) {
-    if (isDemo()) return startDemoPlayback();
+    if (isDemo()) { startDemoPlayback(); startRoundTimer(); return; }
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
-    await playSpotifyTrack(track);
+    const started = await playSpotifyTrack(track);
+    if (started && !game.answered && game.questions[game.index] === track) startRoundTimer();
   }
   async function togglePreview() {
     if (isDemo()) return startDemoPlayback();
