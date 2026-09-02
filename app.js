@@ -34,7 +34,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual').querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
+    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
   };
   const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -67,6 +67,7 @@
   }
 
   function makeWave() {
+    if (!elements.waveform) return;
     elements.waveform.innerHTML = Array.from({ length: 58 }, (_, i) => `<i style="height:${5 + ((i * 17 + 11) % 24)}px"></i>`).join('');
   }
   function clearRoundTimer() { clearInterval(roundTimerId); roundTimerId = undefined; }
@@ -96,7 +97,7 @@
     playbackVolume = Math.max(0, Math.min(1, Number(value) / 100));
     localStorage.setItem('tracktally_volume', String(Math.round(playbackVolume * 100)));
     if (elements.volume) elements.volume.value = String(Math.round(playbackVolume * 100));
-    elements.audio.volume = playbackVolume;
+    if (elements.audio) elements.audio.volume = playbackVolume;
     if (webPlayer) webPlayer.setVolume(playbackVolume).catch(() => {});
   }
   document.querySelectorAll('[data-rounds]').forEach(btn => btn.addEventListener('click', () => setRounds(btn.dataset.rounds)));
@@ -178,9 +179,9 @@
     } catch (error) { showMessage(error.message); }
   }
   function renderConnected(profile, playlists, artists = []) {
-    elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
-    elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
-    elements.playlistControl.classList.remove('disabled'); elements.playlistSelect.disabled = false;
+    if (elements.authState) elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
+    if (elements.setupDescription) elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
+    elements.playlistControl?.classList.remove('disabled'); if (elements.playlistSelect) elements.playlistSelect.disabled = false;
     // Spotify now exposes the count through `items` and retains `tracks` only
     // for older API responses. Support both so valid playlists are not shown
     // as empty in the selector.
@@ -189,9 +190,9 @@
       const trackTotal = item.items?.total ?? item.tracks?.total ?? 0;
       return `<option value="${item.id}">${escapeHtml(item.name)} · ${trackTotal} Songs</option>`;
     }).join('');
-    elements.playlistSelect.innerHTML = likedSongsOption + playlistOptions;
+    if (elements.playlistSelect) elements.playlistSelect.innerHTML = likedSongsOption + playlistOptions;
     renderHomeCollections(playlists, artists);
-    elements.connect.classList.add('hidden'); elements.startPlaylist.classList.remove('hidden');
+    elements.connect?.classList.add('hidden'); elements.startPlaylist?.classList.remove('hidden');
   }
   function coverMarkup(imageUrl, fallback) {
     return imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" />` : `<span>${escapeHtml(fallback)}</span>`;
@@ -436,12 +437,12 @@
     if (spotifyPlaying) return stopSpotifyPlayback();
     await playSpotifyTrack(game.questions[game.index]);
   }
-  elements.audio.addEventListener('play', () => { elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing'); });
-  elements.audio.addEventListener('pause', () => { elements.play.classList.remove('pause'); elements.vinyl.classList.remove('playing'); elements.waveform.classList.remove('playing'); });
-  elements.audio.addEventListener('timeupdate', () => { elements.time.textContent = `0:${String(Math.floor(elements.audio.currentTime)).padStart(2, '0')}`; });
-  elements.audio.addEventListener('ended', stopAudio);
-  function showConfigModal() { elements.redirect.textContent = redirectUri(); elements.modal.classList.remove('hidden'); }
-  function showMessage(message) { elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; }
+  elements.audio?.addEventListener('play', () => { elements.play?.classList.add('pause'); elements.vinyl?.classList.add('playing'); elements.waveform?.classList.add('playing'); });
+  elements.audio?.addEventListener('pause', () => { elements.play?.classList.remove('pause'); elements.vinyl?.classList.remove('playing'); elements.waveform?.classList.remove('playing'); });
+  elements.audio?.addEventListener('timeupdate', () => { if (elements.time) elements.time.textContent = `0:${String(Math.floor(elements.audio.currentTime)).padStart(2, '0')}`; });
+  elements.audio?.addEventListener('ended', stopAudio);
+  function showConfigModal() { if (!elements.modal || !elements.redirect) return; elements.redirect.textContent = redirectUri(); elements.modal.classList.remove('hidden'); }
+  function showMessage(message) { if (!elements.setupDescription) return; elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; }
   async function copy(value, successElement) { try { await navigator.clipboard.writeText(value); const previous = successElement.textContent; successElement.textContent = 'Kopiert ✓'; setTimeout(() => successElement.textContent = previous, 1800); } catch { window.prompt('Kopiere diesen Text:', value); } }
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
@@ -451,17 +452,17 @@
   elements.startPlaylist?.addEventListener('click', startPlaylistGame);
   elements.play?.addEventListener('click', togglePreview);
   elements.next?.addEventListener('click', nextQuestion);
-  elements.leave?.addEventListener('click', () => { stopAudio(); elements.game.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); });
+  elements.leave?.addEventListener('click', () => { stopAudio(); elements.game?.classList.add('hidden'); elements.setup?.parentElement.classList.remove('hidden'); });
   elements.playAgain?.addEventListener('click', () => startGame(game.mode, game.allTracks));
-  elements.backToSetup?.addEventListener('click', () => { elements.results.classList.add('hidden'); elements.setup.parentElement.classList.remove('hidden'); window.scrollTo({ top: elements.setup.offsetTop - 50, behavior: 'smooth' }); });
+  elements.backToSetup?.addEventListener('click', () => { elements.results?.classList.add('hidden'); elements.setup?.parentElement.classList.remove('hidden'); if (elements.setup) window.scrollTo({ top: elements.setup.offsetTop - 50, behavior: 'smooth' }); });
   elements.share?.addEventListener('click', () => copy(window.location.href, elements.share));
   elements.closeModal?.addEventListener('click', () => elements.modal.classList.add('hidden'));
   elements.modal?.addEventListener('click', event => { if (event.target === elements.modal) elements.modal.classList.add('hidden'); });
   elements.copyRedirect?.addEventListener('click', () => copy(redirectUri(), elements.copyRedirect));
   elements.volume?.addEventListener('input', event => setPlaybackVolume(event.target.value));
   setPlaybackVolume(Math.round(playbackVolume * 100));
-  elements.leave.addEventListener('click', clearRoundTimer);
-  elements.backToSetup.addEventListener('click', clearRoundTimer);
+  elements.leave?.addEventListener('click', clearRoundTimer);
+  elements.backToSetup?.addEventListener('click', clearRoundTimer);
   handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
   makeWave();
 })();
