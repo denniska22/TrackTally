@@ -237,25 +237,29 @@
       playlistsRail.innerHTML = playlists.length ? playlists.slice(0, 10).map(playlist => `<button class="media-card user-media-card playlist-launch" type="button" data-playlist-id="${escapeHtml(playlist.id)}" aria-label="Quiz mit der Playlist ${escapeHtml(playlist.name)} starten"><div class="tile-art user-cover">${coverMarkup(playlist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(playlist.name)}</strong><small>${escapeHtml(playlist.owner?.display_name || 'Spotify')} · ${playlist.items?.total ?? playlist.tracks?.total ?? 0} Songs</small></div><span class="playlist-launch-hint" aria-hidden="true">Quiz starten →</span></button>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♪</span></div><div class="tile-copy"><strong>Noch keine Playlists</strong><small>Gespeicherte Playlists erscheinen hier.</small></div></article>';
       playlistsRail.querySelectorAll('[data-playlist-id]').forEach(card => card.addEventListener('click', () => openPlaylistQuiz(card.dataset.playlistId)));
     }
-    requestAnimationFrame(refreshHomeRailSliders);
+    requestAnimationFrame(refreshHomeRailNavigation);
   }
-  function setupRailSlider(railId, sliderId) {
-    const rail = $(`#${railId}`); const slider = $(`#${sliderId}`);
-    if (!rail || !slider) return;
+  function setupRailNavigation(railId, previousId, nextId) {
+    const rail = $(`#${railId}`); const previous = $(`#${previousId}`); const next = $(`#${nextId}`);
+    if (!rail || !previous || !next) return;
     const updateBounds = () => {
       const max = Math.max(0, rail.scrollWidth - rail.clientWidth);
-      slider.max = String(Math.ceil(max)); slider.value = String(Math.min(max, rail.scrollLeft)); slider.disabled = max === 0;
+      previous.hidden = max === 0 || rail.scrollLeft <= 2;
+      next.hidden = max === 0 || rail.scrollLeft >= max - 2;
     };
-    if (!slider.dataset.bound) {
-      slider.addEventListener('input', () => { rail.scrollLeft = Number(slider.value); });
-      rail.addEventListener('scroll', () => { slider.value = String(Math.round(rail.scrollLeft)); }, { passive: true });
-      slider.dataset.bound = 'true';
+    if (!rail.dataset.navigationBound) {
+      const scrollByPage = direction => rail.scrollBy({ left: direction * Math.max(260, Math.round(rail.clientWidth * .82)), behavior: 'smooth' });
+      previous.addEventListener('click', () => scrollByPage(-1));
+      next.addEventListener('click', () => scrollByPage(1));
+      rail.addEventListener('scroll', updateBounds, { passive: true });
+      window.addEventListener('resize', updateBounds, { passive: true });
+      rail.dataset.navigationBound = 'true';
     }
     updateBounds();
   }
-  function refreshHomeRailSliders() {
-    setupRailSlider('artistsRail', 'artistsRailSlider');
-    setupRailSlider('playlistsRail', 'playlistsRailSlider');
+  function refreshHomeRailNavigation() {
+    setupRailNavigation('artistsRail', 'artistsRailPrevious', 'artistsRailNext');
+    setupRailNavigation('playlistsRail', 'playlistsRailPrevious', 'playlistsRailNext');
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
   function loadWebPlaybackSdk() {
@@ -589,6 +593,6 @@
   elements.leave?.addEventListener('click', clearRoundTimer);
   elements.backToSetup?.addEventListener('click', clearRoundTimer);
   handleAuthorizationReturn().then(returned => { if (!returned && tokenData()) loadSpotifyProfile(); });
-  refreshHomeRailSliders();
+  refreshHomeRailNavigation();
   makeWave();
 })();
