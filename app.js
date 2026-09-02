@@ -225,23 +225,132 @@
     } catch (error) { showMessage(`Spotify-Verbindung fehlgeschlagen: ${error.message}`); cleanUrl(); }
     return true;
   }
+  let spotifyTokenRefreshInFlight;
+
   async function freshToken() {
-    let data = tokenData();
+    const data = tokenData();
     if (!data) return null;
     if (data.expires_at > Date.now() + 30_000) return data.access_token;
     if (!data.refresh_token || !configured()) return null;
-    const response = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: CONFIG.clientId, grant_type: 'refresh_token', refresh_token: data.refresh_token }) });
-    const next = await response.json();
-    if (!response.ok) { sessionStorage.removeItem('tracktally_token'); return null; }
-    data = { ...data, ...next, expires_at: Date.now() + next.expires_in * 1000 };
-    setToken(data); return data.access_token;
+    if (spotifyTokenRefreshInFlight) return spotifyTokenRefreshInFlight;
+
+    spotifyTokenRefreshInFlight = (async () => {
+      const latest = tokenData();
+      if (!latest || !latest.refresh_token || !configured()) return null;
+      if (latest.expires_at > Date.now() + 30_000) return latest.access_token;
+
+      const response = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: CONFIG.clientId,
+          grant_type: 'refresh_token',
+          refresh_token: latest.refresh_token
+        })
+      });
+      const next = await response.json();
+      if (!response.ok) {
+        sessionStorage.removeItem('tracktally_token');
+        return null;
+      }
+      const refreshed = { ...latest, ...next, expires_at: Date.now() + next.expires_in * 1000 };
+      setToken(refreshed);
+      return refreshed.access_token;
+    })();
+
+    try {
+      return await spotifyTokenRefreshInFlight;
+    } finally {
+      spotifyTokenRefreshInFlight = undefined;
+    }
   }
+
   const SPOTIFY_REQUEST_GAP_MS = 400;
+  const SPOTIFY_SHORT_RETRY_MAX_MS = 10_000;
+  const SPOTIFY_RATE_LIMIT_KEY = 'tracktally_spotify_api_retry_until';
+  const SPOTIFY_CACHE_TTL = Object.freeze({
+    profile: 30 * 60_000,
+    playlists: 10 * 60_000,
+    userArtists: 60 * 60_000,
+    savedTracks: 5 * 60_000,
+    playlistTracks: 5 * 60_000,
+    artist: 24 * 60 * 60_000,
+    artistAlbums: 6 * 60 * 60_000,
+    albumTracks: 24 * 60 * 60_000
+  });
+
+  const spotifyResponseCache = new Map();
+  const spotifyInFlightRequests = new Map();
   let spotifyRequestQueue = Promise.resolve();
   let spotifyNextRequestAt = 0;
+  let spotifyRateLimitUntil = Number(sessionStorage.getItem(SPOTIFY_RATE_LIMIT_KEY)) || 0;
 
   function waitForSpotify(ms) {
     return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function spotifyRequestMethod(options = {}) {
+    return (options.method || 'GET').toUpperCase();
+  }
+
+  function spotifyRequestKey(path, options = {}) {
+    const body = options.body ? JSON.stringify(options.body) : '';
+    return [spotifyRequestMethod(options), path, body].join(' ');
+  }
+
+  function spotifyCacheTtl(path, options = {}) {
+    if (spotifyRequestMethod(options) !== 'GET') return 0;
+    const resource = path.split('?')[0];
+    if (resource === '/me') return SPOTIFY_CACHE_TTL.profile;
+    if (resource === '/me/playlists') return SPOTIFY_CACHE_TTL.playlists;
+    if (resource === '/me/top/artists' || resource === '/me/following') return SPOTIFY_CACHE_TTL.userArtists;
+    if (resource === '/me/tracks') return SPOTIFY_CACHE_TTL.savedTracks;
+    if (/^\/playlists\/[^/]+\/(items|tracks)$/.test(resource)) return SPOTIFY_CACHE_TTL.playlistTracks;
+    if (resource === '/artists') return SPOTIFY_CACHE_TTL.artist;
+    if (/^\/artists\/[^/]+$/.test(resource)) return SPOTIFY_CACHE_TTL.artist;
+    if (/^\/artists\/[^/]+\/albums$/.test(resource)) return SPOTIFY_CACHE_TTL.artistAlbums;
+    if (/^\/albums\/[^/]+\/tracks$/.test(resource)) return SPOTIFY_CACHE_TTL.albumTracks;
+    return 0;
+  }
+
+  function readSpotifyCache(key) {
+    const entry = spotifyResponseCache.get(key);
+    if (!entry) return undefined;
+    if (entry.expiresAt <= Date.now()) {
+      spotifyResponseCache.delete(key);
+      return undefined;
+    }
+    return entry.value;
+  }
+
+  function writeSpotifyCache(key, value, ttl) {
+    if (ttl > 0) spotifyResponseCache.set(key, { value, expiresAt: Date.now() + ttl });
+  }
+
+  function activeSpotifyRateLimitUntil() {
+    const stored = Number(sessionStorage.getItem(SPOTIFY_RATE_LIMIT_KEY)) || 0;
+    spotifyRateLimitUntil = Math.max(spotifyRateLimitUntil, stored);
+    if (spotifyRateLimitUntil <= Date.now()) {
+      spotifyRateLimitUntil = 0;
+      sessionStorage.removeItem(SPOTIFY_RATE_LIMIT_KEY);
+    }
+    return spotifyRateLimitUntil;
+  }
+
+  function setSpotifyRateLimit(retryAfterMs) {
+    spotifyRateLimitUntil = Date.now() + retryAfterMs;
+    spotifyNextRequestAt = Math.max(spotifyNextRequestAt, spotifyRateLimitUntil);
+    sessionStorage.setItem(SPOTIFY_RATE_LIMIT_KEY, String(spotifyRateLimitUntil));
+  }
+
+  function spotifyRateLimitError(until, reason = '') {
+    const seconds = Math.max(1, Math.ceil((until - Date.now()) / 1000));
+    const error = new Error('Spotify begrenzt die Anfragen gerade. Bitte versuche es in ' + seconds + ' Sekunden erneut.');
+    error.name = 'SpotifyRateLimitError';
+    error.status = 429;
+    error.retryAfterMs = Math.max(0, until - Date.now());
+    error.reason = reason;
+    return error;
   }
 
   function queueSpotifyRequest(request) {
@@ -259,30 +368,73 @@
     return queued;
   }
 
+  async function executeSpotifyRequest(path, options = {}) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const blockedUntil = activeSpotifyRateLimitUntil();
+      if (blockedUntil > Date.now()) throw spotifyRateLimitError(blockedUntil);
+
+      const response = await queueSpotifyRequest(async () => {
+        const token = await freshToken();
+        if (!token) throw new Error('Deine Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.');
+        const headers = { Authorization: 'Bearer ' + token, ...(options.headers || {}) };
+        if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        return fetch('https://api.spotify.com/v1' + path, {
+          ...options,
+          headers,
+          body: options.body ? JSON.stringify(options.body) : undefined
+        });
+      });
+
+      if (response.status === 429) {
+        const data = await response.json().catch(() => ({}));
+        const retryAfterSeconds = Number(response.headers.get('Retry-After'));
+        const retryAfterMs = Math.max(1000, Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds * 1000 : 2000);
+        setSpotifyRateLimit(retryAfterMs);
+        const reason = data.error?.reason || data.reason || '';
+
+        if (attempt === 0 && retryAfterMs <= SPOTIFY_SHORT_RETRY_MAX_MS) {
+          await waitForSpotify(retryAfterMs);
+          activeSpotifyRateLimitUntil();
+          continue;
+        }
+        throw spotifyRateLimitError(spotifyRateLimitUntil, reason);
+      }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const error = new Error(data.error?.message || 'Spotify hat die Anfrage abgelehnt.');
+        error.status = response.status;
+        throw error;
+      }
+
+      return response.status === 204 ? null : response.json();
+    }
+  }
+
   async function spotifyFetch(path) {
     return spotifyRequest(path);
   }
 
-  async function spotifyRequest(path, options = {}, attempt = 0) {
-    const response = await queueSpotifyRequest(async () => {
-      const token = await freshToken();
-      if (!token) throw new Error('Deine Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.');
-      const headers = { Authorization: `Bearer ${token}`, ...(options.headers || {}) };
-      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-      return fetch(`https://api.spotify.com/v1${path}`, { ...options, headers, body: options.body ? JSON.stringify(options.body) : undefined });
+  async function spotifyRequest(path, options = {}) {
+    const key = spotifyRequestKey(path, options);
+    const ttl = spotifyCacheTtl(path, options);
+    const cached = readSpotifyCache(key);
+    if (cached !== undefined) return cached;
+
+    const running = spotifyInFlightRequests.get(key);
+    if (running) return running;
+
+    const request = executeSpotifyRequest(path, options).then(value => {
+      writeSpotifyCache(key, value, ttl);
+      return value;
     });
-    if (response.status === 429) {
-      const retryAfterSeconds = Number(response.headers.get('Retry-After'));
-      const retryAfterMs = Math.max(1000, Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds * 1000 : 2000);
-      spotifyNextRequestAt = Math.max(spotifyNextRequestAt, Date.now() + retryAfterMs);
-      if (attempt < 1) return spotifyRequest(path, options, attempt + 1);
-      throw new Error('Spotify begrenzt die Anfragen gerade. Bitte warte einen Moment und versuche es erneut.');
+    spotifyInFlightRequests.set(key, request);
+
+    try {
+      return await request;
+    } finally {
+      spotifyInFlightRequests.delete(key);
     }
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error?.message || 'Spotify hat die Anfrage abgelehnt.');
-    }
-    return response.status === 204 ? null : response.json();
   }
 
   async function loadSpotifyProfile() {
@@ -756,4 +908,3 @@
   refreshHomeRailNavigation();
   makeWave();
 })();
-
