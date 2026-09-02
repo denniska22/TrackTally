@@ -18,7 +18,7 @@
   const PLACEHOLDER_ID = 'PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE';
   const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'user-library-read', 'streaming', 'user-modify-playback-state'];
   const GAME_SCOPES = ['streaming', 'user-modify-playback-state', 'user-library-read'];
-  const QUIZ_CLIP_MS = 20_000;
+  const QUIZ_CLIP_MS = 10_000;
   const ROUND_TIME_MS = 10_000;
   const LIKED_SONGS_VALUE = '__liked_songs__';
   const DEMO_TRACKS = [
@@ -42,7 +42,7 @@
   let webPlayer;
   let webPlayerDeviceId;
   let webPlayerReady;
-  let streamStopTimer;
+  let spotifyPlaying = false;
   let roundTimerId;
 
   function redirectUri() { return CONFIG.redirectUri || window.location.origin + window.location.pathname; }
@@ -294,13 +294,19 @@
     void startRoundPlayback(track);
   }
   function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
-  function timeExpired() { if (!game.answered) resolveQuestion(game.questions[game.index], null, false, true); }
+  async function timeExpired() {
+    clearRoundTimer();
+    if (!game.answered) resolveQuestion(game.questions[game.index], null, false, true);
+    if (!isDemo() && spotifyPlaying) await stopSpotifyPlayback();
+    else stopAudio();
+    nextQuestion();
+  }
   function resolveQuestion(track, button, right, timedOut) {
-    if (game.answered) return; game.answered = true; clearRoundTimer(); stopAudio();
+    if (game.answered) return; game.answered = true;
     elements.answers.querySelectorAll('.answer').forEach(item => { item.disabled = true; if (item.dataset.correct === 'true') item.classList.add('correct'); });
     if (right) { game.correct++; game.streak++; game.bestStreak = Math.max(game.bestStreak, game.streak); const elapsedTenths = Math.floor((Date.now() - game.roundStartedAt) / 100); const points = Math.max(0, 100 - elapsedTenths); game.score += points; elements.feedback.innerHTML = `<strong>Treffer! +${points} Punkte</strong> &nbsp; „${escapeHtml(track.name)}“` ; }
     else { if (button) button.classList.add('wrong'); game.streak = 0; elements.feedback.innerHTML = timedOut ? `Zeit abgelaufen! Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}` : `Die richtige Antwort: <strong>„${escapeHtml(track.name)}“</strong> von ${escapeHtml(track.artists[0].name)}`; }
-    elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak; elements.feedback.classList.remove('hidden'); elements.next.textContent = game.index + 1 === game.rounds ? 'Ergebnis ansehen →' : 'Nächste Runde →'; elements.next.classList.remove('hidden');
+    elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak; elements.feedback.classList.remove('hidden'); elements.next.classList.add('hidden');
   }
   function nextQuestion() { if (game.index + 1 >= game.rounds) return finishGame(); game.index++; renderQuestion(); }
   function finishGame() {
@@ -308,15 +314,14 @@
     const ratio = game.correct / game.rounds; elements.resultTitle.textContent = ratio >= .8 ? 'Musiklexikon!' : ratio >= .5 ? 'Starke Runde!' : 'Nächste Runde gehört euch!'; elements.resultCopy.textContent = `Du hast ${game.correct} von ${game.rounds} Songs erraten.`; elements.finalScore.textContent = game.score; window.scrollTo({ top: elements.results.offsetTop - 40, behavior: 'smooth' });
   }
   async function stopSpotifyPlayback() {
-    clearTimeout(streamStopTimer);
-    streamStopTimer = undefined;
+    spotifyPlaying = false;
     if (webPlayerDeviceId) await spotifyRequest(`/me/player/pause?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT' }).catch(() => {});
     elements.play.classList.remove('pause'); elements.vinyl.classList.remove('playing'); elements.waveform.classList.remove('playing'); elements.time.textContent = '0:00';
   }
   function stopAudio() {
     if (!isDemo()) {
       elements.audio.pause(); elements.audio.currentTime = 0;
-      if (streamStopTimer) stopSpotifyPlayback();
+      if (spotifyPlaying) void stopSpotifyPlayback();
     }
     elements.play.classList.remove('pause'); elements.vinyl.classList.remove('playing'); elements.waveform.classList.remove('playing'); elements.time.textContent = '0:00';
   }
@@ -342,7 +347,7 @@
       await new Promise(resolve => setTimeout(resolve, 350));
       await spotifyRequest(`/me/player/play?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: game.clipStarts[questionKey] } });
       elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing');
-      streamStopTimer = setTimeout(stopSpotifyPlayback, QUIZ_CLIP_MS);
+      spotifyPlaying = true;
       return true;
     } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); return false; }
   }
@@ -355,7 +360,7 @@
   async function togglePreview() {
     if (isDemo()) return startDemoPlayback();
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
-    if (streamStopTimer) return stopSpotifyPlayback();
+    if (spotifyPlaying) return stopSpotifyPlayback();
     await playSpotifyTrack(game.questions[game.index]);
   }
   elements.audio.addEventListener('play', () => { elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing'); });
