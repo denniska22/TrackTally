@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://api.spotify.com" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="personalized.css" />
   </head>
   <body>
     <div class="noise" aria-hidden="true"></div>
@@ -66,7 +67,7 @@
       <section class="dashboard-feed wrap" aria-label="Musik entdecken">
         <section class="browse-block" aria-labelledby="artistsHeading">
           <div class="browse-heading"><h2 id="artistsHeading"><span aria-hidden="true">♙</span> Artists</h2><a href="#setup">Alle anzeigen <b>›</b></a></div>
-          <div class="card-rail" tabindex="0">
+          <div class="card-rail" id="artistsRail" tabindex="0">
             <article class="media-card"><div class="tile-art artist-art art-ink"><span>VIBE</span></div><div class="tile-copy"><strong>Late Night</strong><small>Dein Mix</small></div></article>
             <article class="media-card"><div class="tile-art artist-art art-lime"><span>♪</span></div><div class="tile-copy"><strong>Dancefloor</strong><small>Dein Mix</small></div></article>
             <article class="media-card"><div class="tile-art artist-art art-orbit"><span>✦</span></div><div class="tile-copy"><strong>Indie Now</strong><small>Dein Mix</small></div></article>
@@ -77,7 +78,7 @@
 
         <section class="browse-block" id="playlists" aria-labelledby="playlistsHeading">
           <div class="browse-heading"><h2 id="playlistsHeading"><span aria-hidden="true">☷</span> Playlists</h2><a href="#setup">Spotify verbinden <b>›</b></a></div>
-          <div class="card-rail" tabindex="0">
+          <div class="card-rail" id="playlistsRail" tabindex="0">
             <article class="media-card"><div class="tile-art playlist-art art-sunset"><span>quiz<br>mix</span></div><div class="tile-copy"><strong>Quiz-Start</strong><small>Für eure Runde</small></div></article>
             <article class="media-card"><div class="tile-art playlist-art art-type"><span>FAVORITES<br>ON REPEAT</span></div><div class="tile-copy"><strong>Lieblingssongs</strong><small>Deine gespeicherten Titel</small></div></article>
             <article class="media-card"><div class="tile-art playlist-art art-flash"><span>⚡</span></div><div class="tile-copy"><strong>Party Picks</strong><small>Für die Clique</small></div></article>
