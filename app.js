@@ -16,9 +16,10 @@
     redirectUri: DEFAULT_CONFIG.redirectUri
   };
   const PLACEHOLDER_ID = 'PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE';
-  const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'streaming', 'user-modify-playback-state'];
-  const PLAYBACK_SCOPES = ['streaming', 'user-modify-playback-state'];
+  const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'user-library-read', 'streaming', 'user-modify-playback-state'];
+  const GAME_SCOPES = ['streaming', 'user-modify-playback-state', 'user-library-read'];
   const QUIZ_CLIP_MS = 20_000;
+  const LIKED_SONGS_VALUE = '__liked_songs__';
   const DEMO_TRACKS = [
     { name: 'Electric Summer', artists: [{ name: 'Neon Coast' }], album: { name: 'Poolside FM', images: [] }, preview_url: null, clue: 'Synthpop · 2024' },
     { name: 'Paper Moons', artists: [{ name: 'Mara Belle' }], album: { name: 'Late Checkout', images: [] }, preview_url: null, clue: 'Indie Pop · 2023' },
@@ -48,9 +49,9 @@
   function shuffle(items) { return [...items].sort(() => Math.random() - .5); }
   function cleanUrl() { history.replaceState({}, document.title, window.location.pathname); }
   function isDemo() { return game.mode === 'demo'; }
-  function hasPlaybackScopes() {
+  function hasGameScopes() {
     const scopes = (tokenData()?.scope || '').split(' ');
-    return PLAYBACK_SCOPES.every(scope => scopes.includes(scope));
+    return GAME_SCOPES.every(scope => scopes.includes(scope));
   }
 
   function makeWave() {
@@ -133,10 +134,12 @@
     // Spotify now exposes the count through `items` and retains `tracks` only
     // for older API responses. Support both so valid playlists are not shown
     // as empty in the selector.
-    elements.playlistSelect.innerHTML = playlists.length ? playlists.map(item => {
+    const likedSongsOption = `<option value="${LIKED_SONGS_VALUE}">♥ Meine Lieblingssongs</option>`;
+    const playlistOptions = playlists.map(item => {
       const trackTotal = item.items?.total ?? item.tracks?.total ?? 0;
       return `<option value="${item.id}">${escapeHtml(item.name)} · ${trackTotal} Songs</option>`;
-    }).join('') : '<option value="">Keine Playlist gefunden</option>';
+    }).join('');
+    elements.playlistSelect.innerHTML = likedSongsOption + playlistOptions;
     elements.connect.classList.add('hidden'); elements.startPlaylist.classList.remove('hidden');
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
@@ -220,19 +223,30 @@
       } while (true);
     }
   }
+  async function getLikedTracks() {
+    const tracks = [];
+    let offset = 0;
+    do {
+      const data = await spotifyFetch(`/me/tracks?limit=50&offset=${offset}`);
+      const items = data.items || [];
+      tracks.push(...items.map(item => item.item || item.track).filter(track => track && track.type === 'track'));
+      offset += items.length;
+      if (!data.next || items.length === 0) return tracks;
+    } while (true);
+  }
   async function startPlaylistGame() {
-    const id = elements.playlistSelect.value; if (!id) return showMessage('Bitte wähle zuerst eine Playlist mit genügend Songs.');
+    const id = elements.playlistSelect.value; if (!id) return showMessage('Bitte wähle zuerst eine Musikquelle mit genügend Songs.');
     elements.startPlaylist.disabled = true; elements.startPlaylist.textContent = 'Playlist wird vorbereitet …';
     try {
-      if (!hasPlaybackScopes()) {
-        showMessage('Für die vollständige Wiedergabe brauchst du einmalig zusätzliche Spotify-Berechtigungen.');
+      if (!hasGameScopes()) {
+        showMessage('Für die vollständige Wiedergabe und Lieblingssongs brauchst du einmalig zusätzliche Spotify-Berechtigungen.');
         await beginSpotifyLogin();
         return;
       }
       if (!await prepareWebPlayer()) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
-      const tracks = await getPlaylistTracks(id);
+      const tracks = id === LIKED_SONGS_VALUE ? await getLikedTracks() : await getPlaylistTracks(id);
       const playable = tracks.filter(track => track.uri && track.artists?.[0]?.name);
-      if (playable.length < 4) throw new Error('In dieser Playlist sind zu wenige auf deinem Konto abspielbare Songs.');
+      if (playable.length < 4) throw new Error('In dieser Auswahl sind zu wenige auf deinem Konto abspielbare Songs.');
       startGame('spotify', playable);
     } catch (error) { showMessage(error.message); }
     finally { elements.startPlaylist.disabled = false; elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>'; }
