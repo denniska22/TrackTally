@@ -16,8 +16,8 @@
     redirectUri: DEFAULT_CONFIG.redirectUri
   };
   const PLACEHOLDER_ID = 'PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE';
-  const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'user-library-read', 'streaming', 'user-modify-playback-state'];
-  const GAME_SCOPES = ['streaming', 'user-modify-playback-state', 'user-library-read'];
+  const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private', 'user-read-email', 'user-library-read', 'user-top-read', 'user-follow-read', 'streaming', 'user-modify-playback-state'];
+  const GAME_SCOPES = ['streaming', 'user-modify-playback-state', 'user-library-read', 'user-top-read', 'user-follow-read'];
   const QUIZ_CLIP_MS = 10_000;
   const ROUND_TIME_MS = 10_000;
   const LIKED_SONGS_VALUE = '__liked_songs__';
@@ -144,13 +144,20 @@
   }
   async function loadSpotifyProfile() {
     try {
-      showMessage('Deine Spotify-Playlists werden geladen …');
-      const [profile, playlists] = await Promise.all([spotifyFetch('/me'), spotifyFetch('/me/playlists?limit=50')]);
+      showMessage('Deine Spotify-Startseite wird geladen …');
+      const [profile, playlists, topArtists, followedArtists] = await Promise.all([
+        spotifyFetch('/me'),
+        spotifyFetch('/me/playlists?limit=50'),
+        spotifyFetch('/me/top/artists?limit=10&time_range=medium_term').catch(() => ({ items: [] })),
+        spotifyFetch('/me/following?type=artist&limit=10').catch(() => ({ artists: { items: [] } }))
+      ]);
       const items = playlists.items || [];
-      renderConnected(profile, items);
+      const artists = [...(topArtists.items || []), ...(followedArtists.artists?.items || [])];
+      const uniqueArtists = [...new Map(artists.map(artist => [artist.id, artist])).values()];
+      renderConnected(profile, items, uniqueArtists);
     } catch (error) { showMessage(error.message); }
   }
-  function renderConnected(profile, playlists) {
+  function renderConnected(profile, playlists, artists = []) {
     elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
     elements.setupDescription.textContent = 'Wähle eine Playlist für die nächste Runde.';
     elements.playlistControl.classList.remove('disabled'); elements.playlistSelect.disabled = false;
@@ -163,7 +170,20 @@
       return `<option value="${item.id}">${escapeHtml(item.name)} · ${trackTotal} Songs</option>`;
     }).join('');
     elements.playlistSelect.innerHTML = likedSongsOption + playlistOptions;
+    renderHomeCollections(playlists, artists);
     elements.connect.classList.add('hidden'); elements.startPlaylist.classList.remove('hidden');
+  }
+  function coverMarkup(imageUrl, fallback) {
+    return imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" />` : `<span>${escapeHtml(fallback)}</span>`;
+  }
+  function renderHomeCollections(playlists, artists) {
+    const artistsRail = $('#artistsRail'); const playlistsRail = $('#playlistsRail');
+    if (artistsRail) {
+      artistsRail.innerHTML = artists.length ? artists.slice(0, 10).map(artist => `<article class="media-card user-media-card"><div class="tile-art user-cover">${coverMarkup(artist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(artist.name)}</strong><small>${escapeHtml((artist.genres || []).slice(0, 2).join(' · ') || 'Dein Artist')}</small></div></article>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♫</span></div><div class="tile-copy"><strong>Noch keine Artists</strong><small>Nach dem erneuten Verbinden erscheinen sie hier.</small></div></article>';
+    }
+    if (playlistsRail) {
+      playlistsRail.innerHTML = playlists.length ? playlists.slice(0, 10).map(playlist => `<article class="media-card user-media-card"><div class="tile-art user-cover">${coverMarkup(playlist.images?.[0]?.url, '♪')}</div><div class="tile-copy"><strong>${escapeHtml(playlist.name)}</strong><small>${escapeHtml(playlist.owner?.display_name || 'Spotify')} · ${playlist.items?.total ?? playlist.tracks?.total ?? 0} Songs</small></div></article>`).join('') : '<article class="media-card empty-media-card"><div class="tile-art user-cover"><span>♪</span></div><div class="tile-copy"><strong>Noch keine Playlists</strong><small>Gespeicherte Playlists erscheinen hier.</small></div></article>';
+    }
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
   function loadWebPlaybackSdk() {
@@ -293,7 +313,7 @@
     elements.startPlaylist.disabled = true; elements.startPlaylist.textContent = 'Playlist wird vorbereitet …';
     try {
       if (!hasGameScopes()) {
-        showMessage('Für die vollständige Wiedergabe und Lieblingssongs brauchst du einmalig zusätzliche Spotify-Berechtigungen.');
+        showMessage('Für Wiedergabe, Lieblingssongs und deine personalisierte Startseite brauchst du einmalig zusätzliche Spotify-Berechtigungen.');
         await beginSpotifyLogin();
         return;
       }
