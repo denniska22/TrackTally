@@ -8,6 +8,7 @@ body{background:#08101d;color:#f4f7fb;padding-bottom:26px}
 .brand{color:#f4f7fb;font-size:20px;letter-spacing:-1px}.brand>span:last-child>span{color:var(--lime)}
 .brand-mark i{background:#f4f7fb}.brand-mark i:nth-child(2){background:var(--lime)}
 .site-header .button-small{display:inline-flex;border:1px solid #25405b;background:#0d1828;color:#eaf1fb;padding:9px 13px;font-size:11px}.site-header .button-small.connected{border-color:#187a48;background:rgba(32,214,107,.12);color:var(--lime);cursor:default}.site-header .button-small.connected:hover{transform:none}
+.site-header .button-small.connection-error{border-color:#8c4357;background:rgba(204,74,102,.12);color:#ff9aae}.connection-notice{margin-top:12px;padding:10px 13px;border:1px solid #2b4e68;border-radius:9px;background:#0d1827;color:#c4d1df;font-size:12px}.connection-notice.error{border-color:#8c4357;background:rgba(204,74,102,.11);color:#ffb5bf}
 .hero,.ticker,.how{display:none}
 
 .dashboard-feed{padding:24px 0 20px}.browse-block{margin-bottom:28px}.browse-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 11px}.browse-heading h2{margin:0;color:#f4f7fb;font-size:19px;line-height:1;font-weight:700;letter-spacing:-.035em}.browse-heading h2 span{display:inline-grid;place-items:center;color:var(--lime);width:22px;margin-right:5px;font-size:19px;font-weight:400}.browse-heading a{color:var(--lime);font-size:12px;font-weight:700;text-decoration:none}.browse-heading a b{font-size:20px;line-height:0;vertical-align:-2px;margin-left:3px}
