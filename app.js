@@ -3,7 +3,7 @@
   'use strict';
 
   const CONFIG = window.TRACKTALLY_CONFIG || {};
-  const PLACEHOLDER_ID = 'PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE';
+  const PLACEHOLDER_ID = '4f5e3a37204446b683eecf6ccc47dff5';
   const SCOPES = ['playlist-read-private', 'playlist-read-collaborative', 'user-read-private'];
   const DEMO_TRACKS = [
     { name: 'Electric Summer', artists: [{ name: 'Neon Coast' }], album: { name: 'Poolside FM', images: [] }, preview_url: null, clue: 'Synthpop · 2024' },
