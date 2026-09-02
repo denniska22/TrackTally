@@ -3,6 +3,8 @@
   'use strict';
 
 
+
+
   // spotify.config.js may be blocked by privacy extensions or restrictive
   // browser policies. Keep the public PKCE client ID as a reliable fallback.
   // A Spotify client ID is intentionally public; never place a client secret here.
@@ -34,6 +36,8 @@
   ];
 
 
+
+
   const $ = (selector) => document.querySelector(selector);
   const elements = {
     setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
@@ -51,6 +55,8 @@
   let artistQuizStarting = false;
   let playlistQuizStarting = false;
   let playlistSources = [];
+
+
 
 
   function appRootUrl() {
@@ -80,6 +86,8 @@
     const scopes = (tokenData()?.scope || '').split(' ');
     return GAME_SCOPES.every(scope => scopes.includes(scope));
   }
+
+
 
 
   function makeWave() {
@@ -117,6 +125,8 @@
     if (webPlayer) webPlayer.setVolume(playbackVolume).catch(() => {});
   }
   document.querySelectorAll('[data-rounds]').forEach(btn => btn.addEventListener('click', () => setRounds(btn.dataset.rounds)));
+
+
 
 
   async function sha256(value) {
@@ -184,17 +194,55 @@
     data = { ...data, ...next, expires_at: Date.now() + next.expires_in * 1000 };
     setToken(data); return data.access_token;
   }
+  const SPOTIFY_REQUEST_GAP_MS = 400;
+  let spotifyRequestQueue = Promise.resolve();
+  let spotifyNextRequestAt = 0;
+
+  function waitForSpotify(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function queueSpotifyRequest(request) {
+    const run = async () => {
+      const waitMs = Math.max(0, spotifyNextRequestAt - Date.now());
+      if (waitMs) await waitForSpotify(waitMs);
+      try {
+        return await request();
+      } finally {
+        spotifyNextRequestAt = Math.max(spotifyNextRequestAt, Date.now() + SPOTIFY_REQUEST_GAP_MS);
+      }
+    };
+    const queued = spotifyRequestQueue.then(run, run);
+    spotifyRequestQueue = queued.catch(() => {});
+    return queued;
+  }
+
   async function spotifyFetch(path) {
     return spotifyRequest(path);
   }
-  async function spotifyRequest(path, options = {}) {
-    const token = await freshToken(); if (!token) throw new Error('Deine Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.');
-    const headers = { Authorization: `Bearer ${token}`, ...(options.headers || {}) };
-    if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-    const response = await fetch(`https://api.spotify.com/v1${path}`, { ...options, headers, body: options.body ? JSON.stringify(options.body) : undefined });
-    if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error?.message || 'Spotify hat die Anfrage abgelehnt.'); }
+
+  async function spotifyRequest(path, options = {}, attempt = 0) {
+    const response = await queueSpotifyRequest(async () => {
+      const token = await freshToken();
+      if (!token) throw new Error('Deine Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.');
+      const headers = { Authorization: `Bearer ${token}`, ...(options.headers || {}) };
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      return fetch(`https://api.spotify.com/v1${path}`, { ...options, headers, body: options.body ? JSON.stringify(options.body) : undefined });
+    });
+    if (response.status === 429) {
+      const retryAfterSeconds = Number(response.headers.get('Retry-After'));
+      const retryAfterMs = Math.max(1000, Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds * 1000 : 2000);
+      spotifyNextRequestAt = Math.max(spotifyNextRequestAt, Date.now() + retryAfterMs);
+      if (attempt < 1) return spotifyRequest(path, options, attempt + 1);
+      throw new Error('Spotify begrenzt die Anfragen gerade. Bitte warte einen Moment und versuche es erneut.');
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error?.message || 'Spotify hat die Anfrage abgelehnt.');
+    }
     return response.status === 204 ? null : response.json();
   }
+
   async function loadSpotifyProfile() {
     try {
       if (elements.setupDescription) showMessage('Deine Spotify-Startseite wird geladen …');
@@ -619,6 +667,8 @@
     showHomeNotice(message, 'error');
   }
   async function copy(value, successElement) { try { await navigator.clipboard.writeText(value); const previous = successElement.textContent; successElement.textContent = 'Kopiert ✓'; setTimeout(() => successElement.textContent = previous, 1800); } catch { window.prompt('Kopiere diesen Text:', value); } }
+
+
 
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
