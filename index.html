@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="personalized.css" />
     <link rel="stylesheet" href="volume.css" />
+    <link rel="stylesheet" href="home.css" />
   </head>
   <body>
     <div class="noise" aria-hidden="true"></div>
@@ -24,7 +25,6 @@
         <a href="#privat">Privat spielen</a>
         <a href="#setup">Einrichtung</a>
       </nav>
-      <button class="button button-small" id="headerConnect">Spotify verbinden</button>
     </header>
 
     <main id="top">
@@ -67,7 +67,7 @@
 
       <section class="dashboard-feed wrap" aria-label="Musik entdecken">
         <section class="browse-block" aria-labelledby="artistsHeading">
-          <div class="browse-heading"><h2 id="artistsHeading"><span aria-hidden="true">♙</span> Artists</h2><a href="#setup">Alle anzeigen <b>›</b></a></div>
+          <div class="browse-heading"><h2 id="artistsHeading"><span aria-hidden="true">♙</span> Artists</h2><a href="play.html">Zum Quiz <b>›</b></a></div>
           <div class="card-rail" id="artistsRail" tabindex="0">
             <article class="media-card"><div class="tile-art artist-art art-ink"><span>VIBE</span></div><div class="tile-copy"><strong>Late Night</strong><small>Dein Mix</small></div></article>
             <article class="media-card"><div class="tile-art artist-art art-lime"><span>♪</span></div><div class="tile-copy"><strong>Dancefloor</strong><small>Dein Mix</small></div></article>
@@ -78,7 +78,7 @@
         </section>
 
         <section class="browse-block" id="playlists" aria-labelledby="playlistsHeading">
-          <div class="browse-heading"><h2 id="playlistsHeading"><span aria-hidden="true">☷</span> Playlists</h2><a href="#setup">Spotify verbinden <b>›</b></a></div>
+          <div class="browse-heading"><h2 id="playlistsHeading"><span aria-hidden="true">☷</span> Playlists</h2><a href="play.html">Zum Quiz <b>›</b></a></div>
           <div class="card-rail" id="playlistsRail" tabindex="0">
             <article class="media-card"><div class="tile-art playlist-art art-sunset"><span>quiz<br>mix</span></div><div class="tile-copy"><strong>Quiz-Start</strong><small>Für eure Runde</small></div></article>
             <article class="media-card"><div class="tile-art playlist-art art-type"><span>FAVORITES<br>ON REPEAT</span></div><div class="tile-copy"><strong>Lieblingssongs</strong><small>Deine gespeicherten Titel</small></div></article>
@@ -90,51 +90,9 @@
 
       </section>
 
-      <section class="play-area wrap" id="setup">
-        <div class="setup-panel" id="setupPanel">
-          <div class="panel-kicker">DEIN QUIZ</div>
-          <h2>Was läuft bei euch?</h2>
-          <p class="setup-description" id="setupDescription">Verbinde Spotify, wähle eine Playlist und lege die Rundenanzahl fest.</p>
-          <div class="auth-state" id="authState">
-            <span class="spotify-pulse" aria-hidden="true">♪</span>
-            <div><strong>Noch nicht verbunden</strong><small>Deine Daten bleiben in deinem Browser.</small></div>
-          </div>
-          <div class="playlist-control disabled" id="playlistControl">
-            <label for="playlistSelect">Deine Playlist</label>
-            <select id="playlistSelect" disabled><option>Erst Spotify verbinden</option></select>
-          </div>
-          <div class="rounds-row"><span>Runden</span><div class="round-picker" role="group" aria-label="Rundenanzahl"><button data-rounds="5">5</button><button class="active" data-rounds="10">10</button><button data-rounds="15">15</button></div></div>
-          <button class="button button-primary button-wide" id="connectButton">Spotify verbinden <span aria-hidden="true">↗</span></button>
-          <button class="button button-secondary button-wide hidden" id="startPlaylistGame">Quiz mit Playlist starten <span aria-hidden="true">→</span></button>
-          <p class="helper">Für vollständige Titel benötigt jede:r Mitspieler:in Spotify Premium. Die Wiedergabe bleibt im eigenen Spotify-Konto.</p>
-        </div>
-        <aside class="privacy-note" id="privat">
-          <span class="privacy-icon">♧</span><p class="eyebrow">PLAY WITH FRIENDS</p><h3>Spielt eine Runde zusammen.</h3><p>Wähle deine Playlist, starte das Quiz und schicke den Link in eure Gruppe. Jede:r hört über das eigene Spotify-Konto.</p>
-          <div class="room-join"><span>○ ○ ○ ○ ○ ○</span><button type="button" disabled>Beitreten</button></div>
-          <ul><li>Deine Daten bleiben in deinem Browser</li><li>Keine Playlist-Änderungen</li><li>Perfekt für euren nächsten Musikabend</li></ul>
-        </aside>
-        <div class="play-dock"><button class="button button-primary" id="heroConnect"><span aria-hidden="true">▷</span> Mit Spotify spielen</button><button class="dock-demo" id="demoStart">Demo starten</button></div>
-      </section>
-
-      <section class="game-shell wrap hidden" id="gameShell" aria-live="polite">
-        <div class="game-topline"><button class="back-button" id="leaveGame">← Quiz verlassen</button><span id="roundCounter">RUNDE 1 / 10</span><div class="round-timer" id="roundTimerMeter" aria-label="Verbleibende Zeit"><span>00:<b id="roundTimer">10</b></span><i><i id="roundTimerBar"></i></i></div><strong><span id="score">0</span> Pkt.</strong></div>
-        <div class="game-layout">
-          <div class="game-main">
-            <div class="track-visual" id="trackVisual"><div class="vinyl"><span></span></div><div class="visual-glow"></div><div class="question-mark">?</div></div>
-            <p class="game-prompt">WELCHER SONG IST DAS?</p>
-            <p class="track-clue" id="trackClue">Hör genau hin – du hast einen Versuch.</p>
-            <div class="player-row"><button class="play-button" id="playPreview" aria-label="Wiedergabe ist während der Runde aktiviert" disabled><span class="play-triangle"></span></button><div class="waveform" id="waveform" aria-hidden="true"></div><label class="volume-control" for="volumeRange"><span aria-hidden="true">🔊</span><input id="volumeRange" type="range" min="0" max="100" value="65" aria-label="Lautstärke" /></label><span class="preview-time" id="previewTime">0:00</span></div>
-            <audio id="previewAudio" preload="none"></audio>
-            <div class="answer-grid" id="answerGrid"></div>
-            <div class="answer-feedback hidden" id="answerFeedback"></div>
-            <button class="button button-primary next-button hidden" id="nextQuestion">Nächste Runde <span aria-hidden="true">→</span></button>
-          </div>
-          <aside class="game-sidebar"><p class="eyebrow">EURE SESSION</p><div class="streak-box"><span>⚡</span><div><strong id="streak">0er-Streak</strong><small>Treffer in Folge</small></div></div><div class="session-stats"><div><strong id="correctCount">0</strong><span>richtig</span></div><div><strong id="bestStreak">0</strong><span>beste Serie</span></div></div><div class="room-card"><span>♧</span><p><strong>Freunde dabei?</strong> Schickt ihnen den Link und startet dieselbe Playlist-Runde.</p><button id="shareGame">Einladungslink kopieren</button></div></aside>
-        </div>
-      </section>
-
-      <section class="result-card wrap hidden" id="resultCard">
-        <div class="result-confetti" aria-hidden="true">✦ &nbsp; ♪ &nbsp; ✦</div><p class="eyebrow">QUIZ BEENDET</p><h2 id="resultTitle">Starke Runde!</h2><p id="resultCopy">Du hast 0 von 10 Songs erraten.</p><div class="final-score"><span id="finalScore">0</span><small>Punkte</small></div><div class="result-actions"><button class="button button-primary" id="playAgain">Noch eine Runde</button><button class="button button-secondary" id="backToSetup">Andere Playlist</button></div>
+      <section class="home-play-callout wrap">
+        <div><p class="eyebrow">DEINE PLAYLIST. EURE RUNDE.</p><h2>Wer kennt die Songs wirklich?</h2><p>Wähle im Quizmodus deine Playlist und fordert euch heraus.</p></div>
+        <button class="button button-primary" id="heroConnect"><span aria-hidden="true">▷</span> Mit Spotify spielen</button>
       </section>
     </main>
 
