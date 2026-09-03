@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08101d" />
+    <meta name="description" content="Wähle den Spielmodus für dein TrackTally-Quiz." />
+    <title>TrackTally – Spielmodus wählen</title>
+    <link rel="stylesheet" href="mode.css" />
+  </head>
+  <body class="mode-page">
+    <main class="mode-shell">
+      <a class="mode-back" href="./" aria-label="Zurück zur Startseite">←</a>
+
+      <section class="mode-choice" aria-labelledby="modeTitle">
+        <h1 id="modeTitle">Neue Runde</h1>
+        <p class="mode-intro">Wie möchtest du spielen?</p>
+
+        <div class="mode-options">
+          <a class="mode-card mode-card-solo" href="play.html?mode=solo">
+            <span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6.8" r="3.1"></circle><path d="M5.7 21v-2.2a6.3 6.3 0 0 1 6.3-6.3 6.3 6.3 0 0 1 6.3 6.3V21"></path></svg></span>
+            <span class="mode-copy"><strong>Solo-Quiz</strong><small>10 Songs – knacke deinen Bestwert</small></span>
+            <span class="mode-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a class="mode-card mode-card-multiplayer" href="play.html?mode=multiplayer">
+            <span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m13.4 2-7 11h5.3L10.6 22l7-11h-5.3L13.4 2Z"></path></svg></span>
+            <span class="mode-copy"><strong>Mehrspieler-Quiz</strong><small>Gemeinsam spielen – lade deine Freunde ein</small></span>
+            <span class="mode-chevron" aria-hidden="true">›</span>
+          </a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
