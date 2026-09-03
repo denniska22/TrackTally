@@ -21,6 +21,7 @@
       <button class="button button-small" id="headerConnect">Spotify verbinden</button>
     </header>
 
+
     <main>
       <section class="play-area play-setup-shell wrap" id="setup">
         <div class="setup-panel" id="setupPanel">
@@ -37,6 +38,7 @@
         <aside class="privacy-note"><span class="privacy-icon">♫</span><p class="eyebrow">10 SEKUNDEN PRO SONG</p><h3>Hören. Raten. Punkte holen.</h3><p>Der Song startet automatisch. Nach zehn Sekunden geht es direkt mit der nächsten Runde weiter.</p><ul><li>Bis zu 100 Punkte pro Song</li><li>Antworten aus ähnlichen Genres</li><li>Keine Pausen während der Runde</li></ul></aside>
       </section>
 
+
       <section class="game-shell wrap hidden" id="gameShell" aria-live="polite">
         <div class="game-topline"><button class="back-button" id="leaveGame">← Quiz verlassen</button><span id="roundCounter">RUNDE 1 / 10</span><div class="round-timer" id="roundTimerMeter" aria-label="Verbleibende Zeit"><span>00:<b id="roundTimer">10</b></span><i><i id="roundTimerBar"></i></i></div><strong><span id="score">0</span> Pkt.</strong></div>
         <div class="game-layout">
@@ -50,11 +52,13 @@
         </div>
       </section>
 
+
       <section class="result-card wrap hidden" id="resultCard"><div class="result-confetti" aria-hidden="true">✦ &nbsp; ♪ &nbsp; ✦</div><p class="eyebrow">QUIZ BEENDET</p><h2 id="resultTitle">Starke Runde!</h2><p id="resultCopy">Du hast 0 von 10 Songs erraten.</p><div class="final-score"><span id="finalScore">0</span><small>Punkte</small></div><div class="result-actions"><button class="button button-primary" id="playAgain">Noch eine Runde</button><button class="button button-secondary" id="backToSetup">Andere Playlist</button></div></section>
     </main>
 
+
     <div class="modal-backdrop hidden" id="configModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="config-modal"><button class="close-modal" id="closeModal" aria-label="Dialog schließen">×</button><p class="eyebrow">EINMALIGE EINRICHTUNG</p><h2 id="modalTitle">Spotify-App verbinden</h2><p>Für den echten Login braucht TrackTally eine Spotify Client-ID. Die Erstellung ist kostenlos und dauert nur wenige Minuten.</p><ol><li>Erstelle im <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a> eine App.</li><li>Trage die unten angezeigte Adresse als Redirect URI ein.</li><li>Kopiere die Client-ID in <code>spotify.config.js</code>.</li></ol><div class="redirect-copy"><span>Redirect URI</span><code id="redirectUri"></code><button id="copyRedirect">Kopieren</button></div><p class="modal-small">Anschließend Seite neu laden und erneut auf „Spotify verbinden“ klicken.</p></div></div>
     <script src="spotify.config.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=spotify-page-loading-20260903-1"></script>
   </body>
 </html>
