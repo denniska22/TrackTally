@@ -702,7 +702,7 @@
           webPlaybackActivated = false;
         });
         webPlayer.addListener('autoplay_failed', () => {
-          requirePlaybackActivation('Dein Browser blockiert den automatischen Start. Klicke auf Wiedergabe, um diese Runde zu starten.');
+          requirePlaybackActivation('Dein Browser blockiert den automatischen Start. Aktiviere die Wiedergabe einmal, dann starten die folgenden Runden automatisch.');
         });
         webPlayer.addListener('player_state_changed', state => {
           if (!state) return;
@@ -939,10 +939,7 @@
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
     makeWave();
     updateRoundTimer(ROUND_TIME_MS);
-    if (!isDemo() && !webPlaybackActivated) {
-      requirePlaybackActivation();
-      return;
-    }
+    
     void startRoundPlayback(track);
   }
   function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
@@ -1004,7 +1001,7 @@
   }
   async function startRoundPlayback(track) {
     if (isDemo()) { startDemoPlayback(); startRoundTimer(); return; }
-    if (!webPlaybackActivated) return requirePlaybackActivation();
+    
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
     const started = await playSpotifyTrack(track);
     if (started && !game.answered && game.questions[game.index] === track) startRoundTimer();
