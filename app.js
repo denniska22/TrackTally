@@ -600,6 +600,7 @@
     renderPlaylistPicker();
     renderHomeCollections(playlists, artists);
     elements.connect?.classList.add('hidden'); elements.startPlaylist?.classList.remove('hidden');
+    if (window.location.pathname.endsWith('/play.html') && hasGameScopes()) void warmUpWebPlaybackForPlaylistStart();
   }
   function coverMarkup(imageUrl, fallback) {
     return imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" />` : `<span>${escapeHtml(fallback)}</span>`;
@@ -736,6 +737,29 @@
       } catch (error) { showMessage(error.message); resolve(false); }
     });
     return webPlayerReady;
+  }
+  async function warmUpWebPlaybackForPlaylistStart() {
+    if (!elements.startPlaylist || webPlayerDeviceId) return;
+    elements.startPlaylist.disabled = true;
+    elements.startPlaylist.textContent = 'Spotify Player wird vorbereitet …';
+    const ready = await prepareWebPlayer();
+    if (!ready) return;
+    elements.startPlaylist.disabled = false;
+    elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>';
+    if (elements.setupDescription) {
+      elements.setupDescription.textContent = 'Wähle eine Playlist und starte deine Runde.';
+      elements.setupDescription.style.color = '';
+    }
+  }
+  function activateWebPlaybackFromUserGesture() {
+    if (webPlaybackActivated || !webPlayer) return;
+    try {
+      const activation = webPlayer.activateElement?.();
+      webPlaybackActivated = true;
+      Promise.resolve(activation).catch(() => { webPlaybackActivated = false; });
+    } catch {
+      webPlaybackActivated = false;
+    }
   }
   async function addArtistGenres(tracks) {
     const artistIds = [...new Set(tracks.flatMap(track => (track.artists || []).map(artist => artist.id).filter(Boolean)))];
@@ -889,6 +913,7 @@
   }
   async function startPlaylistGame() {
     const id = elements.playlistSelect.value; if (!id) return showMessage('Bitte wähle zuerst eine Musikquelle mit genügend Songs.');
+    activateWebPlaybackFromUserGesture();
     elements.startPlaylist.disabled = true; elements.startPlaylist.textContent = 'Playlist wird vorbereitet …';
     try {
       await startPlaylistQuiz(id);
