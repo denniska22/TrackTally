@@ -52,7 +52,7 @@
   const elements = {
     setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), legacyHeroConnect: $('#legacyHeroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore'), roundSummary: $('#roundSummary')
   };
-  const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
+  const timerElements = { value: $('#roundTimer'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
   let audioContext;
   let webPlayer;
@@ -136,10 +136,10 @@
   }
   function clearRoundTimer() { clearInterval(roundTimerId); roundTimerId = undefined; }
   function updateRoundTimer(remaining) {
-    if (!timerElements.value || !timerElements.bar || !timerElements.meter) return;
-    const seconds = Math.ceil(remaining / 1000); timerElements.value.textContent = seconds;
-    timerElements.bar.style.width = `${Math.max(0, remaining / ROUND_TIME_MS) * 100}%`;
-    timerElements.meter.classList.toggle('warning', remaining <= 3_000); timerElements.meter.setAttribute('aria-label', `Verbleibende Zeit: ${seconds} Sekunden`);
+    if (!timerElements.value || !timerElements.meter) return;
+    const seconds = Math.max(0, remaining / 1000); const displayTime = seconds.toFixed(1); const progress = Math.max(0, Math.min(1, remaining / ROUND_TIME_MS)); timerElements.value.textContent = displayTime;
+    timerElements.meter.style.setProperty("--timer-hue", String(Math.round(progress * 120)));
+    timerElements.meter.setAttribute('aria-label', `Verbleibende Zeit: ${displayTime} Sekunden`);
   }
   function startRoundTimer() {
     clearRoundTimer();
