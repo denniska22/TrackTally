@@ -58,6 +58,7 @@
   let webPlayer;
   let webPlayerDeviceId;
   let webPlayerReady;
+  let webPlaybackActivated = false;
   let spotifyPlaying = false;
   let roundTimerId;
   let playbackVolume = Math.max(0, Math.min(1, Number(localStorage.getItem('tracktally_volume') ?? 65) / 100));
@@ -111,6 +112,26 @@
   function makeWave() {
     if (!elements.waveform) return;
     elements.waveform.innerHTML = Array.from({ length: 58 }, (_, i) => `<i style="height:${5 + ((i * 17 + 11) % 24)}px"></i>`).join('');
+  }
+  function showGameMessage(message) {
+    if (!elements.game || elements.game.classList.contains('hidden') || !elements.clue) return false;
+    elements.clue.textContent = message;
+    elements.clue.style.color = '#f07895';
+    return true;
+  }
+  function requirePlaybackActivation(message = 'Klicke einmal auf Wiedergabe, um Audio in diesem Browser zu aktivieren.') {
+    webPlaybackActivated = false;
+    spotifyPlaying = false;
+    clearRoundTimer();
+    elements.answers?.querySelectorAll('.answer').forEach(button => { button.disabled = true; });
+    if (elements.play) {
+      elements.play.disabled = false;
+      elements.play.classList.remove('pause');
+      elements.play.setAttribute('aria-label', 'Wiedergabe im Browser aktivieren');
+    }
+    elements.vinyl?.classList.remove('playing');
+    elements.waveform?.classList.remove('playing');
+    showGameMessage(message);
   }
   function clearRoundTimer() { clearInterval(roundTimerId); roundTimerId = undefined; }
   function updateRoundTimer(remaining) {
@@ -674,7 +695,22 @@
           elements.setupDescription.style.color = '';
           resolve(true);
         });
-        webPlayer.addListener('not_ready', () => { webPlayerDeviceId = undefined; });
+        webPlayer.addListener('not_ready', () => {
+          webPlayerDeviceId = undefined;
+          webPlaybackActivated = false;
+        });
+        webPlayer.addListener('autoplay_failed', () => {
+          requirePlaybackActivation('Dein Browser blockiert den automatischen Start. Klicke auf Wiedergabe, um diese Runde zu starten.');
+        });
+        webPlayer.addListener('player_state_changed', state => {
+          if (!state) return;
+          spotifyPlaying = !state.paused;
+          if (spotifyPlaying) {
+            elements.play?.classList.add('pause');
+            elements.vinyl?.classList.add('playing');
+            elements.waveform?.classList.add('playing');
+          }
+        });
         webPlayer.addListener('account_error', () => {
           showMessage('Für die vollständige Wiedergabe brauchst du Spotify Premium.');
           resolve(false);
@@ -870,12 +906,17 @@
     stopAudio(); elements.answers.innerHTML = ''; elements.feedback.classList.add('hidden'); elements.next.classList.add('hidden');
     elements.round.textContent = `RUNDE ${game.index + 1} / ${game.rounds}`; elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak;
     elements.clue.textContent = isDemo() ? track.clue : 'Zufälliger Song-Ausschnitt · du hast einen Versuch.';
+    elements.clue.style.color = '';
     const distractors = relatedDistractors(track);
     const options = shuffle([track, ...distractors]);
     options.forEach((option, index) => { const button = document.createElement('button'); button.className = 'answer'; button.disabled = true; button.dataset.correct = String(option === track); button.innerHTML = `<span class="answer-letter">${'ABCD'[index]}</span>${escapeHtml(option.name)}`; button.addEventListener('click', () => answerQuestion(button, track)); elements.answers.appendChild(button); });
     if (!isDemo()) { elements.audio.removeAttribute('src'); elements.audio.load(); }
     makeWave();
     updateRoundTimer(ROUND_TIME_MS);
+    if (!isDemo() && !webPlaybackActivated) {
+      requirePlaybackActivation();
+      return;
+    }
     void startRoundPlayback(track);
   }
   function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
@@ -927,7 +968,6 @@
         const earliestStart = latestStart > 10_000 ? 5_000 : 0;
         game.clipStarts[questionKey] = earliestStart + Math.floor(Math.random() * (latestStart - earliestStart + 1));
       }
-      await webPlayer.activateElement?.();
       await spotifyRequest('/me/player', { method: 'PUT', body: { device_ids: [webPlayerDeviceId], play: false } });
       await new Promise(resolve => setTimeout(resolve, 350));
       await spotifyRequest(`/me/player/play?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: game.clipStarts[questionKey] } });
@@ -938,14 +978,29 @@
   }
   async function startRoundPlayback(track) {
     if (isDemo()) { startDemoPlayback(); startRoundTimer(); return; }
+    if (!webPlaybackActivated) return requirePlaybackActivation();
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
     const started = await playSpotifyTrack(track);
     if (started && !game.answered && game.questions[game.index] === track) startRoundTimer();
   }
   async function togglePreview() {
     if (isDemo()) return startDemoPlayback();
-    if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
-    if (spotifyPlaying) return stopSpotifyPlayback();
+    if (!webPlayerDeviceId || !webPlayer) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
+    if (!webPlaybackActivated) {
+      try {
+        const activation = webPlayer.activateElement?.();
+        if (activation) await activation;
+        webPlaybackActivated = true;
+        elements.play.disabled = true;
+        elements.play.setAttribute('aria-label', 'Wiedergabe ist während der Runde aktiviert');
+        elements.clue.style.color = '';
+        await startRoundPlayback(game.questions[game.index]);
+      } catch (error) {
+        requirePlaybackActivation('Die Browser-Wiedergabe konnte nicht aktiviert werden. Klicke erneut auf Wiedergabe.');
+      }
+      return;
+    }
+    if (spotifyPlaying) return;
     await playSpotifyTrack(game.questions[game.index]);
   }
   elements.audio?.addEventListener('play', () => { elements.play?.classList.add('pause'); elements.vinyl?.classList.add('playing'); elements.waveform?.classList.add('playing'); });
@@ -956,6 +1011,7 @@
   function showHomeNotice(message, type = 'info') { if (!elements.connectionNotice) return; elements.connectionNotice.textContent = message; elements.connectionNotice.classList.remove('hidden'); elements.connectionNotice.classList.toggle('error', type === 'error'); }
   function hideHomeNotice() { if (!elements.connectionNotice) return; elements.connectionNotice.classList.add('hidden'); elements.connectionNotice.classList.remove('error'); }
   function showMessage(message) {
+    if (showGameMessage(message)) return;
     if (elements.setupDescription) { elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; return; }
     if (elements.headerConnect) {
       elements.headerConnect.textContent = 'Erneut verbinden';
