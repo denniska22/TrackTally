@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://api.spotify.com" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dashboard.css" />
-    <link rel="stylesheet" href="play.css?v=setup-20260903-1" />
+    <link rel="stylesheet" href="play.css?v=timer-v2-20260903-1" />
     <link rel="stylesheet" href="volume.css" />
     <link rel="stylesheet" href="playlist-select.css" />
   </head>
@@ -40,7 +40,7 @@
 
 
       <section class="game-shell wrap hidden" id="gameShell" aria-live="polite">
-        <div class="game-topline"><button class="back-button" id="leaveGame">← Quiz verlassen</button><span id="roundCounter">RUNDE 1 / 10</span><div class="round-timer" id="roundTimerMeter" role="timer" aria-label="Verbleibende Zeit: 10 Sekunden"><span class="round-timer-label">ZEIT</span><span class="round-timer-display"><span aria-hidden="true">00:</span><b id="roundTimer">10</b><small aria-hidden="true">s</small></span><span class="round-timer-track" aria-hidden="true"><i id="roundTimerBar"></i></span></div><strong><span id="score">0</span> Pkt.</strong></div>
+        <div class="game-topline"><button class="back-button" id="leaveGame">← Quiz verlassen</button><span id="roundCounter">RUNDE 1 / 10</span><div class="round-timer" id="roundTimerMeter" role="timer" aria-label="Verbleibende Zeit: 10 Sekunden"><span class="round-timer-clock" aria-hidden="true"></span><span class="round-timer-display"><b id="roundTimer">10.0</b><small aria-hidden="true">s</small></span></div><strong><span id="score">0</span> Pkt.</strong></div>
         <div class="game-layout">
           <div class="game-main">
             <div class="track-visual" id="trackVisual"><div class="vinyl quiz-equalizer" aria-hidden="true"><i style="--bar-height:54px"></i><i style="--bar-height:84px"></i><i style="--bar-height:113px"></i><i style="--bar-height:72px"></i><i style="--bar-height:38px"></i><i style="--bar-height:64px"></i><i style="--bar-height:94px"></i><i style="--bar-height:49px"></i><i style="--bar-height:79px"></i><i style="--bar-height:119px"></i><i style="--bar-height:88px"></i><i style="--bar-height:59px"></i><i style="--bar-height:98px"></i><i style="--bar-height:45px"></i><i style="--bar-height:74px"></i><i style="--bar-height:110px"></i><i style="--bar-height:67px"></i><i style="--bar-height:91px"></i><i style="--bar-height:121px"></i><i style="--bar-height:76px"></i><i style="--bar-height:51px"></i><i style="--bar-height:86px"></i><i style="--bar-height:106px"></i><i style="--bar-height:62px"></i></div><div class="visual-glow"></div></div>
@@ -59,6 +59,6 @@
 
     <div class="modal-backdrop hidden" id="configModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="config-modal"><button class="close-modal" id="closeModal" aria-label="Dialog schließen">×</button><p class="eyebrow">EINMALIGE EINRICHTUNG</p><h2 id="modalTitle">Spotify-App verbinden</h2><p>Für den echten Login braucht TrackTally eine Spotify Client-ID. Die Erstellung ist kostenlos und dauert nur wenige Minuten.</p><ol><li>Erstelle im <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a> eine App.</li><li>Trage die unten angezeigte Adresse als Redirect URI ein.</li><li>Kopiere die Client-ID in <code>spotify.config.js</code>.</li></ol><div class="redirect-copy"><span>Redirect URI</span><code id="redirectUri"></code><button id="copyRedirect">Kopieren</button></div><p class="modal-small">Anschließend Seite neu laden und erneut auf „Spotify verbinden“ klicken.</p></div></div>
     <script src="spotify.config.js"></script>
-    <script src="app.js?v=timer-20260903-1"></script>
+    <script src="app.js?v=timer-v2-20260903-1"></script>
   </body>
 </html>
