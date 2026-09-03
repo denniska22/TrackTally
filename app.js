@@ -137,9 +137,9 @@
   function clearRoundTimer() { clearInterval(roundTimerId); roundTimerId = undefined; }
   function updateRoundTimer(remaining) {
     if (!timerElements.value || !timerElements.bar || !timerElements.meter) return;
-    timerElements.value.textContent = Math.ceil(remaining / 1000);
+    const seconds = Math.ceil(remaining / 1000); timerElements.value.textContent = seconds;
     timerElements.bar.style.width = `${Math.max(0, remaining / ROUND_TIME_MS) * 100}%`;
-    timerElements.meter.classList.toggle('warning', remaining <= 3_000);
+    timerElements.meter.classList.toggle('warning', remaining <= 3_000); timerElements.meter.setAttribute('aria-label', `Verbleibende Zeit: ${seconds} Sekunden`);
   }
   function startRoundTimer() {
     clearRoundTimer();
