@@ -50,7 +50,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
+    setup: $('#setupPanel'), setupDescription: $('#setupDescription'), authState: $('#authState'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), legacyHeroConnect: $('#legacyHeroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore')
   };
   const timerElements = { value: $('#roundTimer'), bar: $('#roundTimerBar'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -85,10 +85,11 @@
     if (playlistId) url.searchParams.set('playlist', playlistId);
     return url.href;
   }
+  function gameModePageUrl() { return new URL('mode.html', appRootUrl()).href; }
   function artistIdFromUrl() { return new URLSearchParams(window.location.search).get('artist') || ''; }
   function playlistIdFromUrl() { return new URLSearchParams(window.location.search).get('playlist') || ''; }
   function redirectUri() { return CONFIG.redirectUri || appRootUrl(); }
-  function openPlayPage() { window.location.assign(playPageUrl()); }
+  function openGameModePage() { window.location.assign(gameModePageUrl()); }
   function openArtistQuiz(artistId) { window.location.assign(playPageUrl(artistId)); }
   function openPlaylistQuiz(playlistId) { window.location.assign(playPageUrl('', playlistId)); }
   function configured() { return CONFIG.clientId && CONFIG.clientId !== PLACEHOLDER_ID; }
@@ -1032,7 +1033,8 @@
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
   elements.headerConnect?.addEventListener('click', () => beginSpotifyLogin({ useCooldown: true }));
-  elements.heroConnect?.addEventListener('click', openPlayPage);
+  elements.heroConnect?.addEventListener('click', openGameModePage);
+  elements.legacyHeroConnect?.addEventListener('click', openGameModePage);
   elements.demo?.addEventListener('click', startDemo);
   elements.startPlaylist?.addEventListener('click', startPlaylistGame);
   elements.playlistPickerTrigger?.addEventListener('click', () => {
