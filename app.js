@@ -29,6 +29,7 @@
   const SPOTIFY_LOGIN_COOLDOWN_MS = 30_000;
   const SPOTIFY_LOGIN_COOLDOWN_KEY = 'tracktally_spotify_login_cooldown_until';
   const ROUND_TIME_MS = 10_000;
+  const ROUND_TIMER_START_DELAY_MS = 200;
   const LIKED_SONGS_VALUE = '__liked_songs__';
   const DEMO_TRACKS = [
     { name: 'Electric Summer', artists: [{ name: 'Neon Coast' }], album: { name: 'Poolside FM', images: [] }, preview_url: null, clue: 'Synthpop · 2024' },
@@ -61,6 +62,7 @@
   let webPlaybackActivated = false;
   let spotifyPlaying = false;
   let roundTimerId;
+  let roundTimerStartId;
   let pendingRoundTimerTrack;
   let playbackVolume = Math.max(0, Math.min(1, Number(localStorage.getItem('tracktally_volume') ?? 65) / 100));
   const artistGenreCache = new Map();
@@ -141,7 +143,12 @@
     elements.waveform?.classList.remove('playing');
     showGameMessage(message);
   }
-  function clearRoundTimer() { clearInterval(roundTimerId); roundTimerId = undefined; }
+  function clearRoundTimer() {
+    clearInterval(roundTimerId);
+    clearTimeout(roundTimerStartId);
+    roundTimerId = undefined;
+    roundTimerStartId = undefined;
+  }
   function updateRoundTimer(remaining) {
     if (!timerElements.value || !timerElements.meter) return;
     const seconds = Math.max(0, remaining / 1000); const displayTime = seconds.toFixed(1); const progress = Math.max(0, Math.min(1, remaining / ROUND_TIME_MS)); timerElements.value.textContent = displayTime;
@@ -159,6 +166,13 @@
       updateRoundTimer(remaining);
       if (remaining === 0) { clearRoundTimer(); timeExpired(); }
     }, 100);
+  }
+  function scheduleRoundTimerStart(track) {
+    clearRoundTimer();
+    roundTimerStartId = window.setTimeout(() => {
+      roundTimerStartId = undefined;
+      if (!game.answered && game.questions[game.index] === track) startRoundTimer();
+    }, ROUND_TIMER_START_DELAY_MS);
   }
   function setRounds(value) {
     game.rounds = Number(value);
@@ -736,7 +750,7 @@
             const activeTrackUri = state.track_window?.current_track?.uri;
             if (expectedTrack && activeTrackUri === expectedTrack.uri && !game.answered && game.questions[game.index] === expectedTrack) {
               pendingRoundTimerTrack = undefined;
-              startRoundTimer();
+              scheduleRoundTimerStart(expectedTrack);
             }
           } else {
             elements.play?.classList.remove('pause');
@@ -1040,7 +1054,7 @@
     } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); return false; }
   }
   async function startRoundPlayback(track) {
-    if (isDemo()) { startDemoPlayback(); startRoundTimer(); return; }
+    if (isDemo()) { startDemoPlayback(); scheduleRoundTimerStart(track); return; }
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
     pendingRoundTimerTrack = track;
     const requested = await playSpotifyTrack(track);
