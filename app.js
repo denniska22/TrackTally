@@ -1142,7 +1142,7 @@
     const albums = [];
     let offset = 0;
     do {
-      const data = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}/albums?include_groups=album,single,compilation,appears_on&limit=10&offset=${offset}`);
+      const data = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}/albums?include_groups=album,single&limit=10&offset=${offset}`);
       const items = data.items || [];
       albums.push(...items);
       offset += items.length;
@@ -1191,7 +1191,7 @@
       setArtistQuizStatus('Artist-Quiz wird vorbereitet …');
       const [playerReady, discography] = await Promise.all([prepareWebPlayer(), getArtistDiscography(artistId)]);
       if (!playerReady) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
-      const playable = discography.tracks.filter(track => track.uri && track.artists?.some(artist => artist.id === artistId));
+      const playable = discography.tracks.filter(track => track.uri && track.artists?.[0]?.id === artistId);
       if (playable.length < 4) throw new Error(`Für „${discography.artist.name}“ sind auf deinem Spotify-Konto zu wenige abspielbare Songs verfügbar.`);
       setArtistQuizStatus(`„${discography.artist.name}“: ${playable.length} Songs bereit. Quiz startet …`);
       startGame('spotify', await addArtistGenres(playable));
