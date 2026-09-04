@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08101d" />
+    <meta name="description" content="Wähle die Art deines TrackTally-Musikquiz." />
+    <title>TrackTally – Quiztyp wählen</title>
+    <link rel="stylesheet" href="quiz-type.css" />
+  </head>
+  <body class="quiz-type-page">
+    <main class="quiz-type-shell">
+      <a class="quiz-type-back" href="mode.html" aria-label="Zurück zur Spielmodus-Auswahl">←</a>
+
+      <section class="quiz-type-heading" aria-labelledby="quizTypeTitle">
+        <h1 id="quizTypeTitle">Quiztyp auswählen</h1>
+        <p>Wie möchtest du dein Musikquiz erstellen?</p>
+      </section>
+
+      <section class="quiz-type-options" aria-label="Quiztyp wählen">
+        <a class="quiz-type-card" href="play.html?type=artist">
+          <span class="quiz-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="7" r="3.25"></circle><path d="M5.5 21v-2.1a6.5 6.5 0 0 1 13 0V21"></path></svg></span>
+          <span><strong>Artist-Quiz</strong><small>Quiz mit Songs eines bestimmten Artists</small></span>
+        </a>
+
+        <a class="quiz-type-card" href="play.html?type=playlist">
+          <span class="quiz-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M8 6h11M8 12h11M8 18h11"></path><path d="M3.75 6h.01M3.75 12h.01M3.75 18h.01"></path></svg></span>
+          <span><strong>Playlist-Quiz</strong><small>Quiz mit einer deiner Spotify-Playlists</small></span>
+        </a>
+
+        <a class="quiz-type-card" href="play.html?type=liked">
+          <span class="quiz-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 8.25c0 5.28-8.8 10.15-8.8 10.15S3.2 13.53 3.2 8.25A4.58 4.58 0 0 1 12 6.5a4.58 4.58 0 0 1 8.8 1.75Z"></path></svg></span>
+          <span><strong>Lieblingssong-Quiz</strong><small>Quiz mit deinen gespeicherten Songs</small></span>
+        </a>
+      </section>
+    </main>
+  </body>
+</html>
