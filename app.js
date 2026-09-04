@@ -61,6 +61,7 @@
   let webPlaybackActivated = false;
   let spotifyPlaying = false;
   let roundTimerId;
+  let pendingRoundTimerTrack;
   let playbackVolume = Math.max(0, Math.min(1, Number(localStorage.getItem('tracktally_volume') ?? 65) / 100));
   const artistGenreCache = new Map();
   let artistQuizStarting = false;
@@ -123,6 +124,7 @@
   function requirePlaybackActivation(message = 'Klicke einmal auf Wiedergabe, um Audio in diesem Browser zu aktivieren.') {
     webPlaybackActivated = false;
     spotifyPlaying = false;
+    pendingRoundTimerTrack = undefined;
     clearRoundTimer();
     elements.answers?.querySelectorAll('.answer').forEach(button => { button.disabled = true; });
     if (elements.play) {
@@ -711,6 +713,16 @@
             elements.play?.classList.add('pause');
             elements.vinyl?.classList.add('playing');
             elements.waveform?.classList.add('playing');
+            const expectedTrack = pendingRoundTimerTrack;
+            const activeTrackUri = state.track_window?.current_track?.uri;
+            if (expectedTrack && activeTrackUri === expectedTrack.uri && !game.answered && game.questions[game.index] === expectedTrack) {
+              pendingRoundTimerTrack = undefined;
+              startRoundTimer();
+            }
+          } else {
+            elements.play?.classList.remove('pause');
+            elements.vinyl?.classList.remove('playing');
+            elements.waveform?.classList.remove('playing');
           }
         });
         webPlayer.addListener('account_error', () => {
@@ -929,6 +941,7 @@
   }
   function renderQuestion() {
     const track = game.questions[game.index]; game.answered = false;
+    pendingRoundTimerTrack = undefined;
     stopAudio(); elements.answers.innerHTML = ''; elements.feedback.classList.add('hidden'); elements.next.classList.add('hidden');
     elements.round.textContent = `RUNDE ${game.index + 1} / ${game.rounds}`; elements.score.textContent = game.score; elements.streak.textContent = `${game.streak}er-Streak`; elements.correct.textContent = game.correct; elements.bestStreak.textContent = game.bestStreak;
     elements.clue.textContent = isDemo() ? track.clue : 'Zufälliger Song-Ausschnitt · du hast einen Versuch.';
@@ -945,6 +958,7 @@
   function answerQuestion(button, track) { resolveQuestion(track, button, button.dataset.correct === 'true', false); }
   async function timeExpired() {
     clearRoundTimer();
+    pendingRoundTimerTrack = undefined;
     if (!game.answered) resolveQuestion(game.questions[game.index], null, false, true);
     if (!isDemo() && spotifyPlaying) await stopSpotifyPlayback();
     else stopAudio();
@@ -994,8 +1008,6 @@
       await spotifyRequest('/me/player', { method: 'PUT', body: { device_ids: [webPlayerDeviceId], play: false } });
       await new Promise(resolve => setTimeout(resolve, 350));
       await spotifyRequest(`/me/player/play?device_id=${encodeURIComponent(webPlayerDeviceId)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: game.clipStarts[questionKey] } });
-      elements.play.classList.add('pause'); elements.vinyl.classList.add('playing'); elements.waveform.classList.add('playing');
-      spotifyPlaying = true;
       return true;
     } catch (error) { showMessage(`Wiedergabe fehlgeschlagen: ${error.message}`); return false; }
   }
@@ -1086,8 +1098,8 @@
   elements.copyRedirect?.addEventListener('click', () => copy(redirectUri(), elements.copyRedirect));
   elements.volume?.addEventListener('input', event => setPlaybackVolume(event.target.value));
   setPlaybackVolume(Math.round(playbackVolume * 100));
-  elements.leave?.addEventListener('click', clearRoundTimer);
-  elements.backToSetup?.addEventListener('click', clearRoundTimer);
+  elements.leave?.addEventListener('click', () => { pendingRoundTimerTrack = undefined; clearRoundTimer(); });
+  elements.backToSetup?.addEventListener('click', () => { pendingRoundTimerTrack = undefined; clearRoundTimer(); });
   handleAuthorizationReturn().then(returned => { syncSpotifyLoginCooldownButton(); if (!returned && tokenData()) loadSpotifyProfile(); });
   refreshHomeRailNavigation();
   makeWave();
