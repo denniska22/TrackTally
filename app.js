@@ -53,7 +53,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupTitle: $('#setupTitle'), setupDescription: $('#setupDescription'), authState: $('#authState'), artistBrowser: $('#artistBrowser'), artistSearch: $('#artistSearch'), artistSearchResults: $('#artistSearchResults'), artistRecommendations: $('#artistRecommendations'), artistPickerStatus: $('#artistPickerStatus'), artistConnect: $('#artistConnectButton'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), legacyHeroConnect: $('#legacyHeroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore'), roundSummary: $('#roundSummary')
+    setup: $('#setupPanel'), setupTitle: $('#setupTitle'), setupDescription: $('#setupDescription'), authState: $('#authState'), artistBrowser: $('#artistBrowser'), artistSearch: $('#artistSearch'), artistSearchResults: $('#artistSearchResults'), artistRecommendations: $('#artistRecommendations'), artistPickerStatus: $('#artistPickerStatus'), artistConnect: $('#artistConnectButton'), playlistBrowser: $('#playlistBrowser'), playlistSearch: $('#playlistSearch'), playlistSearchResults: $('#playlistSearchResults'), playlistRecommendations: $('#playlistRecommendations'), playlistRecommendationsTitle: $('#recommendedPlaylistsTitle'), playlistBrowserStatus: $('#playlistBrowserStatus'), playlistConnect: $('#playlistConnectButton'), playlistSearchAll: $('#playlistSearchAll'), playlistSearchMine: $('#playlistSearchMine'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), legacyHeroConnect: $('#legacyHeroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore'), roundSummary: $('#roundSummary')
   };
   const timerElements = { value: $('#roundTimer'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -75,6 +75,12 @@
   let artistPickerPlayerReady = false;
   let artistSearchDebounceId;
   let artistSearchRequestId = 0;
+  let playlistBrowserPlayerReady = false;
+  let playlistSearchDebounceId;
+  let playlistSearchRequestId = 0;
+  let playlistBrowserView = 'all';
+  const playlistBrowserCatalog = new Map();
+  let userPlaylistRecommendations = [];
 
 
 
@@ -603,6 +609,7 @@
     spotifyProfileLoadInFlight = (async () => {
       try {
         if (isArtistPickerPage()) setArtistPickerStatus('Deine Spotify-Daten werden geladen …');
+        else if (isPlaylistBrowserPage()) setPlaylistBrowserStatus('Deine Spotify-Playlists werden geladen …');
         else if (elements.setupDescription) showMessage('Deine Spotify-Startseite wird geladen …');
         else showHomeNotice('Deine Spotify-Startseite wird geladen …');
         const profile = await spotifyFetch('/me');
@@ -655,10 +662,7 @@
     // as empty in the selector.
     playlistSources = [
       { id: LIKED_SONGS_VALUE, name: 'Meine Lieblingssongs', meta: 'Deine gespeicherten Titel', imageUrl: '', liked: true },
-      ...playlists.map(item => {
-        const trackTotal = item.items?.total ?? item.tracks?.total ?? 0;
-        return { id: item.id, name: item.name, meta: `${item.owner?.display_name || 'Spotify'} · ${trackTotal} Songs`, imageUrl: item.images?.[0]?.url || '', liked: false };
-      })
+      ...playlists.map(playlistSourceFromSpotify)
     ];
     if (elements.playlistSelect) elements.playlistSelect.innerHTML = playlistSources.map(source => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)} · ${escapeHtml(source.meta)}</option>`).join('');
     renderPlaylistPicker();
@@ -668,9 +672,17 @@
       renderArtistRecommendations(recommendedArtists.length ? recommendedArtists : artists);
       if (artistPickerPlayerReady) setArtistPickerControlsDisabled(false);
     }
+    if (isPlaylistBrowserPage()) {
+      userPlaylistRecommendations = playlists.filter(playlist => playlist?.id);
+      userPlaylistRecommendations.forEach(playlist => playlistBrowserCatalog.set(playlist.id, playlist));
+      playlistBrowserPlayerReady = Boolean(webPlayerDeviceId) || !hasGameScopes();
+      renderPlaylistRecommendations(userPlaylistRecommendations);
+      if (playlistBrowserPlayerReady) setPlaylistBrowserControlsDisabled(false);
+      setPlaylistBrowserStatus(playlistBrowserPlayerReady ? 'Wähle eine Playlist für deine nächste Runde.' : 'Spotify Player wird vorbereitet …');
+    }
     renderHomeCollections(playlists, artists);
-    elements.connect?.classList.add('hidden'); elements.artistConnect?.classList.add('hidden');
-    if (quizType === 'artist') elements.startPlaylist?.classList.add('hidden');
+    elements.connect?.classList.add('hidden'); elements.artistConnect?.classList.add('hidden'); elements.playlistConnect?.classList.add('hidden');
+    if (quizType === 'artist' || isPlaylistBrowserPage()) elements.startPlaylist?.classList.add('hidden');
     else elements.startPlaylist?.classList.remove('hidden');
     if (window.location.pathname.endsWith('/play.html') && hasGameScopes()) void warmUpWebPlaybackForPlaylistStart();
   }
@@ -739,6 +751,123 @@
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
   function isArtistPickerPage() { return quizTypeFromUrl() === 'artist' && Boolean(elements.artistBrowser); }
+  function isPlaylistBrowserPage() { return quizTypeFromUrl() === 'playlist' && Boolean(elements.playlistBrowser); }
+  function setPlaylistBrowserStatus(message, type = 'info') {
+    if (!elements.playlistBrowserStatus) return;
+    elements.playlistBrowserStatus.textContent = message;
+    elements.playlistBrowserStatus.classList.toggle('error', type === 'error');
+  }
+  function setPlaylistQuizStatus(message) {
+    if (isPlaylistBrowserPage()) setPlaylistBrowserStatus(message);
+    else if (elements.setupDescription) elements.setupDescription.textContent = message;
+  }
+  function playlistSourceFromSpotify(playlist) {
+    const trackTotal = playlist.items?.total ?? playlist.tracks?.total ?? 0;
+    return {
+      id: playlist.id,
+      name: playlist.name || 'Unbenannte Playlist',
+      meta: `${playlist.owner?.display_name || 'Spotify'} · ${trackTotal} Song${trackTotal === 1 ? '' : 's'}`,
+      imageUrl: playlist.images?.[0]?.url || '',
+      liked: false
+    };
+  }
+  function rememberPlaylistSource(playlist) {
+    if (!playlist?.id) return;
+    const source = playlistSourceFromSpotify(playlist);
+    const likedSource = playlistSources.find(item => item.id === LIKED_SONGS_VALUE);
+    playlistSources = [likedSource, source, ...playlistSources.filter(item => item.id !== LIKED_SONGS_VALUE && item.id !== source.id)].filter(Boolean);
+    if (elements.playlistSelect) elements.playlistSelect.innerHTML = playlistSources.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.meta)}</option>`).join('');
+    renderPlaylistPicker();
+    selectPlaylistSource(source.id);
+  }
+  function playlistBrowserCardMarkup(playlist) {
+    const source = playlistSourceFromSpotify(playlist);
+    const cover = source.imageUrl ? `<img src="${escapeHtml(source.imageUrl)}" alt="" loading="lazy" />` : '<span aria-hidden="true">♪</span>';
+    return `<button class="playlist-browser-card" type="button" role="listitem" data-playlist-browser-id="${escapeHtml(source.id)}" ${playlistBrowserPlayerReady ? '' : 'disabled'}><span class="playlist-browser-card-cover">${cover}</span><span class="playlist-browser-card-copy"><strong>${escapeHtml(source.name)}</strong><small>${escapeHtml(source.meta)}</small></span></button>`;
+  }
+  function bindPlaylistBrowserCards(container) {
+    container?.querySelectorAll('[data-playlist-browser-id]').forEach(card => card.addEventListener('click', () => startPlaylistFromBrowser(card.dataset.playlistBrowserId)));
+  }
+  function rememberPlaylistBrowserItems(playlists) {
+    playlists.filter(playlist => playlist?.id).forEach(playlist => playlistBrowserCatalog.set(playlist.id, playlist));
+  }
+  function renderPlaylistRecommendations(playlists) {
+    if (!elements.playlistRecommendations) return;
+    const showMine = playlistBrowserView === 'mine';
+    const recommendations = playlists.filter(playlist => playlist?.id).slice(0, showMine ? 12 : 4);
+    rememberPlaylistBrowserItems(recommendations);
+    if (elements.playlistRecommendationsTitle) elements.playlistRecommendationsTitle.textContent = showMine ? 'Meine Playlists' : 'Für dich empfohlen';
+    elements.playlistRecommendations.innerHTML = recommendations.length ? recommendations.map(playlistBrowserCardMarkup).join('') : `<p class="playlist-browser-empty">${showMine ? 'Du hast noch keine gespeicherten oder abonnierten Playlists.' : 'Noch keine persönlichen Playlist-Vorschläge verfügbar.'}</p>`;
+    bindPlaylistBrowserCards(elements.playlistRecommendations);
+  }
+  function renderPlaylistSearchResults(playlists, emptyMessage) {
+    if (!elements.playlistSearchResults) return;
+    const results = playlists.filter(playlist => playlist?.id);
+    rememberPlaylistBrowserItems(results);
+    elements.playlistSearchResults.classList.remove('hidden');
+    elements.playlistSearchResults.innerHTML = results.length ? `<div class="playlist-browser-grid" role="list">${results.map(playlistBrowserCardMarkup).join('')}</div>` : `<p class="playlist-browser-empty">${emptyMessage}</p>`;
+    bindPlaylistBrowserCards(elements.playlistSearchResults);
+  }
+  function setPlaylistBrowserControlsDisabled(disabled) {
+    if (elements.playlistSearch) elements.playlistSearch.disabled = disabled;
+    [elements.playlistSearchAll, elements.playlistSearchMine].forEach(button => { if (button) button.disabled = disabled; });
+    document.querySelectorAll('[data-playlist-browser-id]').forEach(card => { card.disabled = disabled; });
+  }
+  function setPlaylistBrowserView(view) {
+    playlistBrowserView = view === 'mine' ? 'mine' : 'all';
+    [elements.playlistSearchAll, elements.playlistSearchMine].forEach(button => {
+      if (!button) return;
+      const active = button.dataset.playlistBrowserView === playlistBrowserView;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    if (elements.playlistSearch) elements.playlistSearch.placeholder = playlistBrowserView === 'mine' ? 'Meine Playlists durchsuchen …' : 'Nach öffentlichen Playlists suchen …';
+    const query = elements.playlistSearch?.value.trim() || '';
+    if (query.length >= 2) void searchSpotifyPlaylists(query);
+    else {
+      elements.playlistSearchResults?.classList.add('hidden');
+      renderPlaylistRecommendations(userPlaylistRecommendations);
+    }
+  }
+  async function searchSpotifyPlaylists(query) {
+    const searchId = ++playlistSearchRequestId;
+    if (query.length < 2) {
+      elements.playlistSearchResults?.classList.add('hidden');
+      return;
+    }
+    if (playlistBrowserView === 'mine') {
+      const normalizedQuery = query.toLocaleLowerCase('de-DE');
+      const matches = userPlaylistRecommendations.filter(playlist => `${playlist.name || ''} ${playlist.owner?.display_name || ''}`.toLocaleLowerCase('de-DE').includes(normalizedQuery));
+      if (searchId === playlistSearchRequestId) renderPlaylistSearchResults(matches, 'Keine passende Playlist in deiner Sammlung gefunden.');
+      return;
+    }
+    try {
+      const data = await spotifyFetch(`/search?q=${encodeURIComponent(query)}&type=playlist&limit=8`);
+      if (searchId !== playlistSearchRequestId || playlistBrowserView !== 'all') return;
+      const publicPlaylists = (data.playlists?.items || []).filter(playlist => playlist?.public !== false);
+      renderPlaylistSearchResults(publicPlaylists, 'Keine öffentliche Playlist gefunden.');
+    } catch (error) {
+      if (searchId !== playlistSearchRequestId) return;
+      elements.playlistSearchResults?.classList.remove('hidden');
+      if (elements.playlistSearchResults) elements.playlistSearchResults.innerHTML = '<p class="playlist-browser-empty">Die Playlist-Suche ist gerade nicht verfügbar. Bitte versuche es erneut.</p>';
+      setPlaylistBrowserStatus(error.message, 'error');
+    }
+  }
+  function startPlaylistFromBrowser(playlistId) {
+    if (!playlistId || !playlistBrowserPlayerReady || playlistQuizStarting) return;
+    const playlist = playlistBrowserCatalog.get(playlistId);
+    if (playlist) rememberPlaylistSource(playlist);
+    if (!hasGameScopes()) {
+      window.location.assign(playPageUrl('', playlistId, 'playlist'));
+      return;
+    }
+    activateWebPlaybackFromUserGesture();
+    setPlaylistBrowserControlsDisabled(true);
+    setPlaylistBrowserStatus('Playlist-Quiz wird vorbereitet …');
+    void startPlaylistQuiz(playlistId).finally(() => {
+      if (!elements.setup?.parentElement?.classList.contains('hidden')) setPlaylistBrowserControlsDisabled(false);
+    });
+  }
   function setArtistPickerStatus(message, type = 'info') {
     if (!elements.artistPickerStatus) return;
     elements.artistPickerStatus.textContent = message;
@@ -891,16 +1020,25 @@
   }
   async function warmUpWebPlaybackForPlaylistStart() {
     const artistPicker = isArtistPickerPage();
+    const playlistBrowser = isPlaylistBrowserPage();
     if (webPlayerDeviceId) {
       if (artistPicker) {
         artistPickerPlayerReady = true;
         setArtistPickerControlsDisabled(false);
+      }
+      if (playlistBrowser) {
+        playlistBrowserPlayerReady = true;
+        setPlaylistBrowserControlsDisabled(false);
+        setPlaylistBrowserStatus('Wähle eine Playlist für deine nächste Runde.');
       }
       return;
     }
     if (artistPicker) {
       setArtistPickerControlsDisabled(true);
       setArtistPickerStatus('Spotify Player wird vorbereitet …');
+    } else if (playlistBrowser) {
+      setPlaylistBrowserControlsDisabled(true);
+      setPlaylistBrowserStatus('Spotify Player wird vorbereitet …');
     } else if (elements.startPlaylist) {
       elements.startPlaylist.disabled = true;
       elements.startPlaylist.textContent = 'Spotify Player wird vorbereitet …';
@@ -911,11 +1049,15 @@
       artistPickerPlayerReady = true;
       setArtistPickerControlsDisabled(false);
       setArtistPickerStatus('Wähle einen Artist für deine nächste Runde.');
+    } else if (playlistBrowser) {
+      playlistBrowserPlayerReady = true;
+      setPlaylistBrowserControlsDisabled(false);
+      setPlaylistBrowserStatus('Wähle eine Playlist für deine nächste Runde.');
     } else if (elements.startPlaylist) {
       elements.startPlaylist.disabled = false;
       elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>';
     }
-    if (!artistPicker && elements.setupDescription) {
+    if (!artistPicker && !playlistBrowser && elements.setupDescription) {
       elements.setupDescription.textContent = 'Wähle eine Playlist und starte deine Runde.';
       elements.setupDescription.style.color = '';
     }
@@ -973,11 +1115,11 @@
         if (!data.next || items.length === 0) return tracks;
       } while (true);
     } catch (firstError) {
-      if (![404, 405, 501].includes(firstError.status)) throw firstError;
+      if (![403, 404, 405, 501].includes(firstError.status)) throw firstError;
       const tracks = [];
       let offset = 0;
       do {
-        const data = await spotifyFetch(`/playlists/${encodeURIComponent(id)}/tracks?limit=100&offset=${offset}`);
+        const data = await spotifyFetch(`/playlists/${encodeURIComponent(id)}/tracks?limit=50&offset=${offset}`);
         const items = data.items || [];
         tracks.push(...items.map(item => item.track).filter(Boolean));
         offset += items.length;
@@ -1067,7 +1209,7 @@
       }
       if (elements.playlistSelect) selectPlaylistSource(id);
       const selectedName = playlistSources.find(source => source.id === id)?.name || elements.playlistSelect?.selectedOptions?.[0]?.textContent?.split(' · ')[0] || 'Deine Playlist';
-      if (elements.setupDescription) elements.setupDescription.textContent = `„${selectedName}“ wird vorbereitet …`;
+      setPlaylistQuizStatus(`„${selectedName}“ wird vorbereitet …`);
       const [playerReady, tracks] = await Promise.all([
         prepareWebPlayer(),
         id === LIKED_SONGS_VALUE ? getLikedTracks() : getPlaylistTracks(id)
@@ -1075,7 +1217,7 @@
       if (!playerReady) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
       const playable = tracks.filter(track => track.uri && track.artists?.[0]?.name);
       if (playable.length < 4) throw new Error('In dieser Playlist sind zu wenige auf deinem Konto abspielbare Songs.');
-      if (elements.setupDescription) elements.setupDescription.textContent = `„${selectedName}“: ${playable.length} Songs bereit. Quiz startet …`;
+      setPlaylistQuizStatus(`„${selectedName}“: ${playable.length} Songs bereit. Quiz startet …`);
       startGame('spotify', await addArtistGenres(playable));
     } catch (error) { showMessage(error.message); }
     finally { playlistQuizStarting = false; }
@@ -1250,6 +1392,7 @@
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
   elements.artistConnect?.addEventListener('click', beginSpotifyLogin);
+  elements.playlistConnect?.addEventListener('click', beginSpotifyLogin);
   elements.headerConnect?.addEventListener('click', () => beginSpotifyLogin({ useCooldown: true }));
   elements.heroConnect?.addEventListener('click', openGameModePage);
   elements.legacyHeroConnect?.addEventListener('click', openGameModePage);
@@ -1276,6 +1419,12 @@
     const query = event.target.value.trim();
     artistSearchDebounceId = window.setTimeout(() => { void searchSpotifyArtists(query); }, 250);
   });
+  [elements.playlistSearchAll, elements.playlistSearchMine].forEach(button => button?.addEventListener('click', () => setPlaylistBrowserView(button.dataset.playlistBrowserView)));
+  elements.playlistSearch?.addEventListener('input', event => {
+    window.clearTimeout(playlistSearchDebounceId);
+    const query = event.target.value.trim();
+    playlistSearchDebounceId = window.setTimeout(() => { void searchSpotifyPlaylists(query); }, 250);
+  });
   elements.play?.addEventListener('click', togglePreview);
   elements.next?.addEventListener('click', nextQuestion);
   elements.leave?.addEventListener('click', () => { stopAudio(); elements.game?.classList.add('hidden'); elements.setup?.parentElement.classList.remove('hidden'); });
@@ -1291,6 +1440,8 @@
     if (!elements.setup) return;
     const quizType = quizTypeFromUrl();
     const artistPicker = quizType === 'artist';
+    const playlistBrowser = quizType === 'playlist';
+    const browserPicker = artistPicker || playlistBrowser;
     const pageCopy = {
       artist: { title: 'Welcher <em>Artist</em> soll es sein?', description: 'Verbinde Spotify und wähle anschließend einen deiner Artists.' },
       playlist: { title: 'Bereit für<br />den <em>nächsten</em> Song?', description: 'Verbinde Spotify, wähle eine Playlist und starte eure Runde.' },
@@ -1299,12 +1450,17 @@
     if (elements.setupTitle) elements.setupTitle.innerHTML = pageCopy.title;
     if (elements.setupDescription) elements.setupDescription.textContent = pageCopy.description;
     document.body.classList.toggle('artist-picker-page', artistPicker);
+    document.body.classList.toggle('playlist-browser-page', playlistBrowser);
     elements.setup.parentElement?.classList.toggle('artist-setup', artistPicker);
+    elements.setup.parentElement?.classList.toggle('playlist-browser-setup', playlistBrowser);
     elements.artistBrowser?.classList.toggle('hidden', !artistPicker);
-    [$('.panel-kicker'), elements.setupTitle, elements.setupDescription, elements.authState, $('.rounds-row'), elements.connect, elements.startPlaylist, $('.helper')].forEach(element => element?.classList.toggle('hidden', artistPicker));
-    elements.playlistControl?.classList.toggle('hidden', quizType !== 'playlist');
+    elements.playlistBrowser?.classList.toggle('hidden', !playlistBrowser);
+    [$('.panel-kicker'), elements.setupTitle, elements.setupDescription, elements.authState, $('.rounds-row'), elements.connect, elements.startPlaylist, $('.helper')].forEach(element => element?.classList.toggle('hidden', browserPicker));
+    elements.playlistControl?.classList.toggle('hidden', quizType !== 'playlist' || playlistBrowser);
     if (elements.artistConnect) elements.artistConnect.classList.toggle('hidden', !artistPicker || Boolean(tokenData()));
-    if (!artistPicker && elements.startPlaylist) elements.startPlaylist.innerHTML = `${startButtonLabel()} <span aria-hidden="true">→</span>`;
+    if (elements.playlistConnect) elements.playlistConnect.classList.toggle('hidden', !playlistBrowser || Boolean(tokenData()));
+    if (playlistBrowser && !tokenData()) setPlaylistBrowserControlsDisabled(true);
+    if (!browserPicker && elements.startPlaylist) elements.startPlaylist.innerHTML = `${startButtonLabel()} <span aria-hidden="true">→</span>`;
   }
   configureQuizSetup();
   elements.leave?.addEventListener('click', () => { pendingRoundTimerTrack = undefined; clearRoundTimer(); });
