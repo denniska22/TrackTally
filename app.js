@@ -973,7 +973,9 @@
   }
   function nextQuestion() { if (game.index + 1 >= game.rounds) return finishGame(); game.index++; renderQuestion(); } function renderRoundSummary() { if (!elements.roundSummary) return; elements.roundSummary.innerHTML = game.roundResults.map((result, index) => { const track = result.track; const artist = track.artists?.map(item => item.name).filter(Boolean).join(', ') || 'Unbekannter Artist'; const imageUrl = track.album?.images?.[2]?.url || track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || ''; const cover = imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" />` : '<span aria-hidden="true">♫</span>'; const outcome = result.right ? 'Richtig' : result.timedOut ? 'Zeit abgelaufen' : 'Nicht erraten'; return `<article class="round-summary-item ${result.right ? 'is-correct' : 'is-missed'}" role="listitem"><span class="round-summary-number">${String(index + 1).padStart(2, '0')}</span><span class="round-summary-cover">${cover}</span><span class="round-summary-copy"><strong>${escapeHtml(track.name)}</strong><small>${escapeHtml(artist)}</small></span><span class="round-summary-result"><b>${result.right ? '✓' : '–'}</b><small>${outcome}</small></span><strong class="round-summary-points">${result.points} Pkt.</strong></article>`; }).join(''); }
   function finishGame() {
-    clearRoundTimer(); stopAudio(); renderRoundSummary(); elements.game.classList.add('hidden'); elements.results.classList.remove('hidden');
+    clearRoundTimer();
+    pendingRoundTimerTrack = undefined;
+    stopAudio(); renderRoundSummary(); elements.game.classList.add('hidden'); elements.results.classList.remove('hidden');
     const ratio = game.correct / game.rounds; elements.resultTitle.textContent = ratio >= .8 ? 'Musiklexikon!' : ratio >= .5 ? 'Starke Runde!' : 'Nächste Runde gehört euch!'; elements.resultCopy.textContent = `Du hast ${game.correct} von ${game.rounds} Songs erraten.`; elements.finalScore.textContent = game.score; window.scrollTo({ top: elements.results.offsetTop - 40, behavior: 'smooth' });
   }
   async function stopSpotifyPlayback() {
@@ -1013,10 +1015,10 @@
   }
   async function startRoundPlayback(track) {
     if (isDemo()) { startDemoPlayback(); startRoundTimer(); return; }
-    
     if (!webPlayerDeviceId) return showMessage('Der Spotify Premium Player wird noch vorbereitet. Bitte einen Moment warten.');
-    const started = await playSpotifyTrack(track);
-    if (started && !game.answered && game.questions[game.index] === track) startRoundTimer();
+    pendingRoundTimerTrack = track;
+    const requested = await playSpotifyTrack(track);
+    if (!requested && pendingRoundTimerTrack === track) pendingRoundTimerTrack = undefined;
   }
   async function togglePreview() {
     if (isDemo()) return startDemoPlayback();
