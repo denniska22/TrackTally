@@ -51,7 +51,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const elements = {
-    setup: $('#setupPanel'), setupTitle: $('#setupTitle'), setupDescription: $('#setupDescription'), authState: $('#authState'), artistControl: $('#artistControl'), artistSelect: $('#artistSelect'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), legacyHeroConnect: $('#legacyHeroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore'), roundSummary: $('#roundSummary')
+    setup: $('#setupPanel'), setupTitle: $('#setupTitle'), setupDescription: $('#setupDescription'), authState: $('#authState'), artistBrowser: $('#artistBrowser'), artistSearch: $('#artistSearch'), artistSearchResults: $('#artistSearchResults'), artistRecommendations: $('#artistRecommendations'), artistPickerStatus: $('#artistPickerStatus'), artistConnect: $('#artistConnectButton'), playlistControl: $('#playlistControl'), playlistSelect: $('#playlistSelect'), playlistPicker: $('#playlistPicker'), playlistPickerTrigger: $('#playlistPickerTrigger'), playlistPickerCover: $('#playlistPickerCover'), playlistPickerName: $('#playlistPickerName'), playlistPickerMeta: $('#playlistPickerMeta'), playlistPickerMenu: $('#playlistPickerMenu'), connectionNotice: $('#connectionNotice'), connect: $('#connectButton'), headerConnect: $('#headerConnect'), heroConnect: $('#heroConnect'), legacyHeroConnect: $('#legacyHeroConnect'), demo: $('#demoStart'), startPlaylist: $('#startPlaylistGame'), game: $('#gameShell'), results: $('#resultCard'), audio: $('#previewAudio'), play: $('#playPreview'), volume: $('#volumeRange'), waveform: $('#waveform'), time: $('#previewTime'), answers: $('#answerGrid'), feedback: $('#answerFeedback'), next: $('#nextQuestion'), round: $('#roundCounter'), score: $('#score'), streak: $('#streak'), correct: $('#correctCount'), bestStreak: $('#bestStreak'), clue: $('#trackClue'), vinyl: $('#trackVisual')?.querySelector('.vinyl'), leave: $('#leaveGame'), share: $('#shareGame'), playAgain: $('#playAgain'), backToSetup: $('#backToSetup'), modal: $('#configModal'), closeModal: $('#closeModal'), redirect: $('#redirectUri'), copyRedirect: $('#copyRedirect'), resultTitle: $('#resultTitle'), resultCopy: $('#resultCopy'), finalScore: $('#finalScore'), roundSummary: $('#roundSummary')
   };
   const timerElements = { value: $('#roundTimer'), meter: $('#roundTimerMeter') };
   let game = { mode: 'demo', allTracks: [], questions: [], index: 0, score: 0, correct: 0, streak: 0, bestStreak: 0, answered: false, rounds: 10 };
@@ -69,6 +69,9 @@
   let artistQuizStarting = false;
   let playlistQuizStarting = false;
   let playlistSources = [];
+  let artistPickerPlayerReady = false;
+  let artistSearchDebounceId;
+  let artistSearchRequestId = 0;
 
 
 
@@ -568,7 +571,8 @@
 
     spotifyProfileLoadInFlight = (async () => {
       try {
-        if (elements.setupDescription) showMessage('Deine Spotify-Startseite wird geladen …');
+        if (isArtistPickerPage()) setArtistPickerStatus('Deine Spotify-Daten werden geladen …');
+        else if (elements.setupDescription) showMessage('Deine Spotify-Startseite wird geladen …');
         else showHomeNotice('Deine Spotify-Startseite wird geladen …');
         const profile = await spotifyFetch('/me');
         let playlistError;
@@ -590,7 +594,7 @@
         const items = playlists.items || [];
         const artists = [...(topArtists.items || []), ...(followedArtists.artists?.items || [])];
         const uniqueArtists = [...new Map(artists.map(artist => [artist.id, artist])).values()];
-        renderConnected(profile, items, uniqueArtists);
+        renderConnected(profile, items, uniqueArtists, topArtists.items || []);
         if (playlistError) showHomeNotice(`Spotify ist verbunden, aber deine Playlists konnten nicht geladen werden: ${playlistError.message}`, 'error');
         const artistId = artistIdFromUrl();
         const playlistId = playlistIdFromUrl();
@@ -606,7 +610,7 @@
       spotifyProfileLoadInFlight = undefined;
     }
   }
-  function renderConnected(profile, playlists, artists = []) {
+  function renderConnected(profile, playlists, artists = [], recommendedArtists = artists) {
     if (elements.authState) elements.authState.innerHTML = `<span class="spotify-pulse" aria-hidden="true">✓</span><div><strong>Verbunden als ${escapeHtml(profile.display_name || 'Spotify-Hörer:in')}</strong><small>${playlists.length} Playlist${playlists.length === 1 ? '' : 's'} verfügbar</small></div>`;
     if (elements.headerConnect) { elements.headerConnect.textContent = '✓ Verbunden'; elements.headerConnect.classList.remove('connection-error'); elements.headerConnect.classList.add('connected'); elements.headerConnect.disabled = true; elements.headerConnect.setAttribute('aria-label', 'Spotify ist verbunden'); }
     hideHomeNotice();
@@ -628,13 +632,15 @@
     if (elements.playlistSelect) elements.playlistSelect.innerHTML = playlistSources.map(source => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)} · ${escapeHtml(source.meta)}</option>`).join('');
     renderPlaylistPicker();
     if (quizType === 'liked') selectPlaylistSource(LIKED_SONGS_VALUE);
-    if (elements.artistSelect) {
-      elements.artistSelect.innerHTML = artists.length ? artists.map(artist => `<option value="${escapeHtml(artist.id)}">${escapeHtml(artist.name)}</option>`).join('') : '<option value="">Keine Artists gefunden</option>';
-      elements.artistSelect.disabled = !artists.length;
+    if (quizType === 'artist') {
+      artistPickerPlayerReady = Boolean(webPlayerDeviceId) || !hasGameScopes();
+      renderArtistRecommendations(recommendedArtists.length ? recommendedArtists : artists);
+      if (artistPickerPlayerReady) setArtistPickerControlsDisabled(false);
     }
     renderHomeCollections(playlists, artists);
-    elements.connect?.classList.add('hidden');
-    if (quizType !== 'artist' || artists.length) elements.startPlaylist?.classList.remove('hidden');
+    elements.connect?.classList.add('hidden'); elements.artistConnect?.classList.add('hidden');
+    if (quizType === 'artist') elements.startPlaylist?.classList.add('hidden');
+    else elements.startPlaylist?.classList.remove('hidden');
     if (window.location.pathname.endsWith('/play.html') && hasGameScopes()) void warmUpWebPlaybackForPlaylistStart();
   }
   function coverMarkup(imageUrl, fallback) {
@@ -701,6 +707,73 @@
     setupRailNavigation('playlistsRail', 'playlistsRailPrevious', 'playlistsRailNext');
   }
   function escapeHtml(value) { const temp = document.createElement('span'); temp.textContent = value; return temp.innerHTML; }
+  function isArtistPickerPage() { return quizTypeFromUrl() === 'artist' && Boolean(elements.artistBrowser); }
+  function setArtistPickerStatus(message, type = 'info') {
+    if (!elements.artistPickerStatus) return;
+    elements.artistPickerStatus.textContent = message;
+    elements.artistPickerStatus.classList.toggle('error', type === 'error');
+  }
+  function setArtistQuizStatus(message) {
+    if (isArtistPickerPage()) setArtistPickerStatus(message);
+    else if (elements.setupDescription) elements.setupDescription.textContent = message;
+  }
+  function formatFollowers(followers) {
+    return followers?.total ? `${new Intl.NumberFormat('de-DE').format(followers.total)} Follower` : 'Artist auf Spotify';
+  }
+  function artistPickerCardMarkup(artist) {
+    const imageUrl = artist.images?.[0]?.url || '';
+    const fallback = escapeHtml((artist.name || '♪').trim().charAt(0).toUpperCase());
+    const cover = imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" />` : fallback;
+    return `<button class="artist-picker-card" type="button" role="listitem" data-artist-picker-id="${escapeHtml(artist.id)}" ${artistPickerPlayerReady ? '' : 'disabled'}><span class="artist-picker-card-cover">${cover}</span><span class="artist-picker-card-copy"><strong>${escapeHtml(artist.name)}</strong><small>${escapeHtml(formatFollowers(artist.followers))}</small></span></button>`;
+  }
+  function bindArtistPickerCards(container) {
+    container?.querySelectorAll('[data-artist-picker-id]').forEach(card => card.addEventListener('click', () => startArtistFromPicker(card.dataset.artistPickerId)));
+  }
+  function renderArtistRecommendations(artists) {
+    if (!elements.artistRecommendations) return;
+    const recommendations = artists.slice(0, 4);
+    elements.artistRecommendations.innerHTML = recommendations.length ? recommendations.map(artistPickerCardMarkup).join('') : '<p class="artist-picker-empty">Noch keine persönlichen Empfehlungen verfügbar.</p>';
+    bindArtistPickerCards(elements.artistRecommendations);
+  }
+  function renderArtistSearchResults(artists) {
+    if (!elements.artistSearchResults) return;
+    elements.artistSearchResults.classList.remove('hidden');
+    elements.artistSearchResults.innerHTML = artists.length ? `<div class="artist-card-grid" role="list">${artists.map(artistPickerCardMarkup).join('')}</div>` : '<p class="artist-picker-empty">Kein passender Artist gefunden.</p>';
+    bindArtistPickerCards(elements.artistSearchResults);
+  }
+  function setArtistPickerControlsDisabled(disabled) {
+    if (elements.artistSearch) elements.artistSearch.disabled = disabled;
+    document.querySelectorAll('[data-artist-picker-id]').forEach(card => { card.disabled = disabled; });
+  }
+  async function searchSpotifyArtists(query) {
+    const searchId = ++artistSearchRequestId;
+    if (query.length < 2) {
+      elements.artistSearchResults?.classList.add('hidden');
+      return;
+    }
+    try {
+      const data = await spotifyFetch(`/search?q=${encodeURIComponent(query)}&type=artist&limit=8`);
+      if (searchId !== artistSearchRequestId) return;
+      renderArtistSearchResults(data.artists?.items || []);
+    } catch (error) {
+      if (searchId !== artistSearchRequestId) return;
+      elements.artistSearchResults?.classList.remove('hidden');
+      if (elements.artistSearchResults) elements.artistSearchResults.innerHTML = '<p class="artist-picker-empty">Die Suche ist gerade nicht verfügbar. Bitte versuche es erneut.</p>';
+      setArtistPickerStatus(error.message, 'error');
+    }
+  }
+  function startArtistFromPicker(artistId) {
+    if (!artistId || !artistPickerPlayerReady || artistQuizStarting) return;
+    if (!hasGameScopes()) {
+      window.location.assign(playPageUrl(artistId, '', 'artist'));
+      return;
+    }
+    activateWebPlaybackFromUserGesture();
+    setArtistPickerControlsDisabled(true);
+    void startArtistQuiz(artistId).finally(() => {
+      if (!elements.setup?.parentElement?.classList.contains('hidden')) setArtistPickerControlsDisabled(false);
+    });
+  }
   function loadWebPlaybackSdk() {
     if (window.Spotify?.Player) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -728,8 +801,11 @@
         });
         webPlayer.addListener('ready', ({ device_id }) => {
           webPlayerDeviceId = device_id;
-          elements.setupDescription.textContent = 'Spotify Premium Player bereit – wähle eine Playlist.';
-          elements.setupDescription.style.color = '';
+          if (isArtistPickerPage()) setArtistPickerStatus('Spotify Player bereit – wähle einen Artist.');
+          else if (elements.setupDescription) {
+            elements.setupDescription.textContent = 'Spotify Premium Player bereit – wähle eine Playlist.';
+            elements.setupDescription.style.color = '';
+          }
           resolve(true);
         });
         webPlayer.addListener('not_ready', () => {
@@ -784,14 +860,32 @@
     return webPlayerReady;
   }
   async function warmUpWebPlaybackForPlaylistStart() {
-    if (!elements.startPlaylist || webPlayerDeviceId) return;
-    elements.startPlaylist.disabled = true;
-    elements.startPlaylist.textContent = 'Spotify Player wird vorbereitet …';
+    const artistPicker = isArtistPickerPage();
+    if (webPlayerDeviceId) {
+      if (artistPicker) {
+        artistPickerPlayerReady = true;
+        setArtistPickerControlsDisabled(false);
+      }
+      return;
+    }
+    if (artistPicker) {
+      setArtistPickerControlsDisabled(true);
+      setArtistPickerStatus('Spotify Player wird vorbereitet …');
+    } else if (elements.startPlaylist) {
+      elements.startPlaylist.disabled = true;
+      elements.startPlaylist.textContent = 'Spotify Player wird vorbereitet …';
+    } else return;
     const ready = await prepareWebPlayer();
     if (!ready) return;
-    elements.startPlaylist.disabled = false;
-    elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>';
-    if (elements.setupDescription) {
+    if (artistPicker) {
+      artistPickerPlayerReady = true;
+      setArtistPickerControlsDisabled(false);
+      setArtistPickerStatus('Wähle einen Artist für deine nächste Runde.');
+    } else if (elements.startPlaylist) {
+      elements.startPlaylist.disabled = false;
+      elements.startPlaylist.innerHTML = 'Quiz mit Playlist starten <span aria-hidden="true">→</span>';
+    }
+    if (!artistPicker && elements.setupDescription) {
       elements.setupDescription.textContent = 'Wähle eine Playlist und starte deine Runde.';
       elements.setupDescription.style.color = '';
     }
@@ -906,7 +1000,7 @@
       const batch = albums.slice(index, index + batchSize);
       const albumTracks = await Promise.all(batch.map(getArtistAlbumTracks));
       tracks.push(...albumTracks.flat());
-      if (elements.setupDescription) elements.setupDescription.textContent = `„${artist.name}“ wird geladen … Album ${Math.min(index + batch.length, albums.length)} von ${albums.length}`;
+      setArtistQuizStatus(`„${artist.name}“ wird geladen … Album ${Math.min(index + batch.length, albums.length)} von ${albums.length}`);
     }
     return {
       artist,
@@ -922,12 +1016,12 @@
         await beginSpotifyLogin();
         return;
       }
-      if (elements.setupDescription) elements.setupDescription.textContent = 'Artist-Quiz wird vorbereitet …';
+      setArtistQuizStatus('Artist-Quiz wird vorbereitet …');
       const [playerReady, discography] = await Promise.all([prepareWebPlayer(), getArtistDiscography(artistId)]);
       if (!playerReady) throw new Error('Der Spotify Premium Player ist nicht verfügbar.');
       const playable = discography.tracks.filter(track => track.uri && track.artists?.some(artist => artist.id === artistId));
       if (playable.length < 4) throw new Error(`Für „${discography.artist.name}“ sind auf deinem Spotify-Konto zu wenige abspielbare Songs verfügbar.`);
-      if (elements.setupDescription) elements.setupDescription.textContent = `„${discography.artist.name}“: ${playable.length} Songs bereit. Quiz startet …`;
+      setArtistQuizStatus(`„${discography.artist.name}“: ${playable.length} Songs bereit. Quiz startet …`);
       startGame('spotify', await addArtistGenres(playable));
     } catch (error) { showMessage(error.message); }
     finally { artistQuizStarting = false; }
@@ -962,8 +1056,9 @@
   }
   async function startPlaylistGame() {
     const quizType = quizTypeFromUrl();
-    const id = quizType === 'artist' ? elements.artistSelect?.value : quizType === 'liked' ? LIKED_SONGS_VALUE : elements.playlistSelect?.value;
-    if (!id) return showMessage(quizType === 'artist' ? 'Bitte wähle zuerst einen Artist.' : 'Bitte wähle zuerst eine Musikquelle mit genügend Songs.');
+    if (quizType === 'artist') return showMessage('Bitte wähle einen Artist über die Suche oder deine Empfehlungen.');
+    const id = quizType === 'liked' ? LIKED_SONGS_VALUE : elements.playlistSelect?.value;
+    if (!id) return showMessage('Bitte wähle zuerst eine Musikquelle mit genügend Songs.');
     activateWebPlaybackFromUserGesture();
     elements.startPlaylist.disabled = true; elements.startPlaylist.textContent = 'Quiz wird vorbereitet …';
     try {
@@ -1089,6 +1184,7 @@
   function hideHomeNotice() { if (!elements.connectionNotice) return; elements.connectionNotice.classList.add('hidden'); elements.connectionNotice.classList.remove('error'); }
   function showMessage(message) {
     if (showGameMessage(message)) return;
+    if (isArtistPickerPage()) { setArtistPickerStatus(message, 'error'); return; }
     if (elements.setupDescription) { elements.setupDescription.textContent = message; elements.setupDescription.style.color = '#9c3350'; return; }
     if (elements.headerConnect) {
       elements.headerConnect.textContent = 'Erneut verbinden';
@@ -1108,6 +1204,7 @@
 
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
+  elements.artistConnect?.addEventListener('click', beginSpotifyLogin);
   elements.headerConnect?.addEventListener('click', () => beginSpotifyLogin({ useCooldown: true }));
   elements.heroConnect?.addEventListener('click', openGameModePage);
   elements.legacyHeroConnect?.addEventListener('click', openGameModePage);
@@ -1129,6 +1226,11 @@
     if (elements.playlistPicker && !elements.playlistPicker.contains(event.target)) closePlaylistPicker();
   });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') closePlaylistPicker(); });
+  elements.artistSearch?.addEventListener('input', event => {
+    window.clearTimeout(artistSearchDebounceId);
+    const query = event.target.value.trim();
+    artistSearchDebounceId = window.setTimeout(() => { void searchSpotifyArtists(query); }, 250);
+  });
   elements.play?.addEventListener('click', togglePreview);
   elements.next?.addEventListener('click', nextQuestion);
   elements.leave?.addEventListener('click', () => { stopAudio(); elements.game?.classList.add('hidden'); elements.setup?.parentElement.classList.remove('hidden'); });
@@ -1143,6 +1245,7 @@
   function configureQuizSetup() {
     if (!elements.setup) return;
     const quizType = quizTypeFromUrl();
+    const artistPicker = quizType === 'artist';
     const pageCopy = {
       artist: { title: 'Welcher <em>Artist</em> soll es sein?', description: 'Verbinde Spotify und wähle anschließend einen deiner Artists.' },
       playlist: { title: 'Bereit für<br />den <em>nächsten</em> Song?', description: 'Verbinde Spotify, wähle eine Playlist und starte eure Runde.' },
@@ -1150,9 +1253,13 @@
     }[quizType];
     if (elements.setupTitle) elements.setupTitle.innerHTML = pageCopy.title;
     if (elements.setupDescription) elements.setupDescription.textContent = pageCopy.description;
-    elements.artistControl?.classList.toggle('hidden', quizType !== 'artist');
+    document.body.classList.toggle('artist-picker-page', artistPicker);
+    elements.setup.parentElement?.classList.toggle('artist-setup', artistPicker);
+    elements.artistBrowser?.classList.toggle('hidden', !artistPicker);
+    [$('.panel-kicker'), elements.setupTitle, elements.setupDescription, elements.authState, $('.rounds-row'), elements.connect, elements.startPlaylist, $('.helper')].forEach(element => element?.classList.toggle('hidden', artistPicker));
     elements.playlistControl?.classList.toggle('hidden', quizType !== 'playlist');
-    if (elements.startPlaylist) elements.startPlaylist.innerHTML = `${startButtonLabel()} <span aria-hidden="true">→</span>`;
+    if (elements.artistConnect) elements.artistConnect.classList.toggle('hidden', !artistPicker || Boolean(tokenData()));
+    if (!artistPicker && elements.startPlaylist) elements.startPlaylist.innerHTML = `${startButtonLabel()} <span aria-hidden="true">→</span>`;
   }
   configureQuizSetup();
   elements.leave?.addEventListener('click', () => { pendingRoundTimerTrack = undefined; clearRoundTimer(); });

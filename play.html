@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="play.css?v=timer-v2-20260903-1" />
     <link rel="stylesheet" href="volume.css" />
     <link rel="stylesheet" href="playlist-select.css" />
-    <link rel="stylesheet" href="artist-select.css" />
+    <link rel="stylesheet" href="artist-picker.css" />
   </head>
   <body class="play-page">
     <div class="noise" aria-hidden="true"></div>
@@ -30,7 +30,23 @@
           <h1 id="setupTitle">Bereit für<br />den <em>nächsten</em> Song?</h1>
           <p class="setup-description" id="setupDescription">Verbinde Spotify, wähle eine Playlist und starte eure Runde.</p>
           <div class="auth-state" id="authState"><span class="spotify-pulse" aria-hidden="true">♪</span><div><strong>Noch nicht verbunden</strong><small>Deine Daten bleiben in deinem Browser.</small></div></div>
-          <div class="artist-control hidden disabled" id="artistControl"><label for="artistSelect">Dein Artist</label><select class="artist-select" id="artistSelect" disabled><option value="">Erst Spotify verbinden</option></select></div>
+          <section class="artist-browser hidden" id="artistBrowser" aria-labelledby="artistBrowserTitle">
+            <header class="artist-browser-heading">
+              <h1 id="artistBrowserTitle">Artist auswählen</h1>
+              <p>Suche nach einem Artist oder entdecke deine Empfehlungen.</p>
+            </header>
+            <label class="artist-search" for="artistSearch">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.5"></circle><path d="m16 16 4.25 4.25"></path></svg>
+              <input id="artistSearch" type="search" placeholder="Nach Artists suchen …" autocomplete="off" disabled />
+            </label>
+            <div class="artist-search-results hidden" id="artistSearchResults" aria-live="polite"></div>
+            <section class="artist-recommendations" aria-labelledby="recommendedArtistsTitle">
+              <div class="artist-recommendations-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.2"></circle><path d="M5.7 21v-2.1a6.3 6.3 0 0 1 12.6 0V21"></path></svg><h2 id="recommendedArtistsTitle">Für dich empfohlen</h2></div>
+              <div class="artist-card-grid" id="artistRecommendations" role="list"></div>
+            </section>
+            <p class="artist-picker-status" id="artistPickerStatus" role="status">Verbinde Spotify, um Artists zu suchen und persönliche Empfehlungen zu erhalten.</p>
+            <button class="button button-primary artist-connect-button" id="artistConnectButton">Spotify verbinden <span aria-hidden="true">↗</span></button>
+          </section>
           <div class="playlist-control disabled" id="playlistControl"><label id="playlistLabel">Deine Playlist</label><div class="playlist-select-wrap" id="playlistPicker"><button class="playlist-picker-trigger" id="playlistPickerTrigger" type="button" disabled aria-haspopup="listbox" aria-expanded="false" aria-controls="playlistPickerMenu"><span class="playlist-picker-cover" id="playlistPickerCover" aria-hidden="true">♪</span><span class="playlist-picker-copy"><strong id="playlistPickerName">Erst Spotify verbinden</strong><small id="playlistPickerMeta">Deine Playlists erscheinen hier.</small></span><span class="playlist-picker-chevron" aria-hidden="true">⌄</span></button><div class="playlist-picker-menu" id="playlistPickerMenu" role="listbox" aria-labelledby="playlistLabel" hidden></div><select class="playlist-native-select" id="playlistSelect" disabled tabindex="-1" aria-hidden="true"><option>Erst Spotify verbinden</option></select></div></div>
           <div class="rounds-row"><span>Runden</span><div class="round-picker" role="group" aria-label="Rundenanzahl"><button data-rounds="5">5</button><button class="active" data-rounds="10">10</button><button data-rounds="15">15</button></div></div>
           <button class="button button-primary button-wide" id="connectButton">Spotify verbinden <span aria-hidden="true">↗</span></button>
@@ -61,6 +77,6 @@
 
     <div class="modal-backdrop hidden" id="configModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="config-modal"><button class="close-modal" id="closeModal" aria-label="Dialog schließen">×</button><p class="eyebrow">EINMALIGE EINRICHTUNG</p><h2 id="modalTitle">Spotify-App verbinden</h2><p>Für den echten Login braucht TrackTally eine Spotify Client-ID. Die Erstellung ist kostenlos und dauert nur wenige Minuten.</p><ol><li>Erstelle im <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a> eine App.</li><li>Trage die unten angezeigte Adresse als Redirect URI ein.</li><li>Kopiere die Client-ID in <code>spotify.config.js</code>.</li></ol><div class="redirect-copy"><span>Redirect URI</span><code id="redirectUri"></code><button id="copyRedirect">Kopieren</button></div><p class="modal-small">Anschließend Seite neu laden und erneut auf „Spotify verbinden“ klicken.</p></div></div>
     <script src="spotify.config.js"></script>
-    <script src="app.js?v=timer-delay-20260904-1"></script>
+    <script src="app.js?v=artist-search-20260904-1"></script>
   </body>
 </html>
