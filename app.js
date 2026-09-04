@@ -29,7 +29,7 @@
   const SPOTIFY_LOGIN_COOLDOWN_MS = 30_000;
   const SPOTIFY_LOGIN_COOLDOWN_KEY = 'tracktally_spotify_login_cooldown_until';
   const ROUND_TIME_MS = 10_000;
-  const ROUND_TIMER_START_DELAY_MS = 200;
+  const ROUND_TIMER_START_DELAY_MS = 1_000;
   const LIKED_SONGS_VALUE = '__liked_songs__';
   const DEMO_TRACKS = [
     { name: 'Electric Summer', artists: [{ name: 'Neon Coast' }], album: { name: 'Poolside FM', images: [] }, preview_url: null, clue: 'Synthpop · 2024' },
