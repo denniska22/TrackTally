@@ -1000,7 +1000,7 @@
     const albums = [];
     let offset = 0;
     do {
-      const data = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}/albums?include_groups=album,single,compilation,appears_on&limit=50&offset=${offset}`);
+      const data = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}/albums?include_groups=album,single,compilation,appears_on&limit=10&offset=${offset}`);
       const items = data.items || [];
       albums.push(...items);
       offset += items.length;
