@@ -5,6 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#08101d" />
     <title>TrackTally – Progressive Audio Reveal</title>
+    <link rel="stylesheet" href="progressive-audio-reveal.css" />
   </head>
-  <body></body>
+  <body class="audio-reveal-page">
+    <main class="audio-reveal-shell">
+      <header class="audio-reveal-intro">
+        <p class="audio-reveal-kicker">MUSIC GUESSING GAME</p>
+        <h1>track<span>tally</span></h1>
+        <p class="audio-reveal-description">Spiele 5 Songs von leicht bis unmöglich. Errate jeden Titel und teile dein Ergebnis.</p>
+      </header>
+
+      <section class="audio-reveal-controls" aria-label="Quiz-Einstellungen">
+        <div class="audio-reveal-pills" role="group" aria-label="Schwierigkeit">
+          <button class="audio-reveal-pill active difficulty" type="button">Easy</button>
+          <button class="audio-reveal-pill difficulty" type="button">Medium</button>
+          <button class="audio-reveal-pill difficulty" type="button">Hard</button>
+          <button class="audio-reveal-pill difficulty" type="button">Expert</button>
+          <button class="audio-reveal-pill difficulty" type="button">Impossible</button>
+        </div>
+        <div class="audio-reveal-pills" role="group" aria-label="Kategorie">
+          <button class="audio-reveal-pill active genre" type="button">Mein Geschmack</button>
+          <button class="audio-reveal-pill genre" type="button">Alle Genres</button>
+          <button class="audio-reveal-pill genre" type="button">Pop</button>
+          <button class="audio-reveal-pill genre" type="button">Rock</button>
+          <button class="audio-reveal-pill genre" type="button">Hip-Hop</button>
+        </div>
+      </section>
+
+      <section class="audio-reveal-game" aria-label="Progressive Audio Reveal">
+        <div class="audio-reveal-progress" aria-label="Fortschritt: Runde 1 von 5"><span></span><i></i><i></i><i></i><i></i></div>
+        <div class="audio-reveal-player">
+          <button class="audio-reveal-play" type="button" aria-label="Wiedergabe starten"><span aria-hidden="true"></span></button>
+          <strong>1.0s</strong>
+        </div>
+        <div class="audio-reveal-guess-row">
+          <label class="audio-reveal-search" for="audioRevealSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.5"></circle><path d="m16 16 4.25 4.25"></path></svg><input id="audioRevealSearch" type="search" placeholder="Songs suchen …" /></label>
+          <button class="audio-reveal-skip" type="button"><span aria-hidden="true">⏭</span>Überspringen</button>
+        </div>
+        <p class="audio-reveal-meta">0 / 6 Versuche · Easy · Mein Geschmack</p>
+      </section>
+    </main>
+  </body>
 </html>

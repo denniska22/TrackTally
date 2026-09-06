@@ -1,0 +1,73 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0d0b0a;
+  color: #f7f3ee;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: radial-gradient(circle at 50% 58%, rgba(164, 125, 20, .08), transparent 14rem), #0d0b0a;
+}
+
+button,
+input { font: inherit; }
+
+button { cursor: pointer; }
+
+.audio-reveal-page { display: grid; min-height: 100vh; place-items: center; }
+.audio-reveal-shell { width: min(100% - 48px, 544px); padding: 31px 0 25px; }
+.audio-reveal-intro { text-align: center; }
+.audio-reveal-kicker { margin: 0; color: #8ca3bd; font-size: 13px; font-weight: 700; letter-spacing: .25em; }
+.audio-reveal-intro h1 { margin: 10px 0 9px; color: #f7f4ef; font-size: clamp(30px, 5.5vw, 35px); letter-spacing: -.06em; line-height: 1; }
+.audio-reveal-intro h1 span { color: #38d49b; }
+.audio-reveal-description { max-width: 485px; margin: 0 auto; color: #b6c5d7; font-size: 15px; line-height: 1.35; }
+.audio-reveal-controls { display: grid; gap: 15px; justify-items: center; margin-top: 33px; }
+.audio-reveal-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.audio-reveal-pill { min-height: 37px; padding: 0 17px; border: 0; border-radius: 999px; color: #8b8d92; background: #201e1d; font-size: 14px; font-weight: 700; transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; }
+.audio-reveal-pill:hover,
+.audio-reveal-pill:focus-visible { transform: translateY(-1px); color: #e9eff6; outline: none; }
+.audio-reveal-pill.active.difficulty { color: #032218; background: #3bd4a0; box-shadow: 0 7px 18px rgba(47, 210, 156, .14); }
+.audio-reveal-pill.active.genre { color: #eef4ff; background: #5789f0; box-shadow: 0 7px 18px rgba(87, 137, 240, .15); }
+.audio-reveal-game { margin-top: 44px; }
+.audio-reveal-progress { display: grid; grid-template-columns: repeat(5, 1fr); height: 6px; overflow: hidden; border-radius: 999px; background: #292725; }
+.audio-reveal-progress span,
+.audio-reveal-progress i { display: block; border-right: 1px solid rgba(255, 255, 255, .1); }
+.audio-reveal-progress span { border-radius: inherit; background: #3bd4a0; }
+.audio-reveal-progress i:last-child { border-right: 0; }
+.audio-reveal-player { display: flex; align-items: center; justify-content: center; gap: 22px; min-height: 177px; }
+.audio-reveal-play { position: relative; display: grid; width: 96px; height: 96px; place-items: center; border: 0; border-radius: 50%; background: #3bd4a0; box-shadow: 0 0 0 1px rgba(236, 255, 246, .08), 0 15px 32px rgba(55, 207, 154, .16); transition: transform .18s ease, box-shadow .18s ease; }
+.audio-reveal-play:hover,
+.audio-reveal-play:focus-visible { transform: scale(1.04); box-shadow: 0 0 0 1px rgba(236, 255, 246, .18), 0 18px 36px rgba(55, 207, 154, .26); outline: none; }
+.audio-reveal-play span { width: 0; height: 0; margin-left: 6px; border-top: 13px solid transparent; border-bottom: 13px solid transparent; border-left: 21px solid #092018; }
+.audio-reveal-player strong { color: #3bd4a0; font-size: 32px; letter-spacing: -.05em; }
+.audio-reveal-guess-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 13px; }
+.audio-reveal-search { display: flex; align-items: center; gap: 13px; min-height: 52px; padding: 0 17px; border-radius: 999px; background: #201e1d; color: #79a0ca; }
+.audio-reveal-search svg { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
+.audio-reveal-search input { width: 100%; border: 0; outline: 0; color: #eff4fa; background: transparent; font-size: 14px; }
+.audio-reveal-search input::placeholder { color: #8ca0b6; opacity: 1; }
+.audio-reveal-search:focus-within { box-shadow: 0 0 0 2px rgba(87, 137, 240, .52); }
+.audio-reveal-skip { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 96px; min-height: 52px; border: 0; border-radius: 999px; color: #f1ece8; background: #201e1d; font-size: 14px; font-weight: 700; transition: transform .18s ease, background-color .18s ease; }
+.audio-reveal-skip:hover,
+.audio-reveal-skip:focus-visible { transform: translateY(-1px); background: #2b2927; outline: none; }
+.audio-reveal-skip span { color: #e8c79d; font-size: 15px; }
+.audio-reveal-meta { margin: 14px 0 0; color: #8ca0b6; font-size: 12px; text-align: center; }
+
+@media (max-width: 530px) {
+  .audio-reveal-shell { width: min(100% - 30px, 544px); padding: 28px 0 22px; }
+  .audio-reveal-controls { margin-top: 27px; }
+  .audio-reveal-pill { min-height: 35px; padding: 0 14px; font-size: 13px; }
+  .audio-reveal-game { margin-top: 34px; }
+  .audio-reveal-player { min-height: 153px; }
+  .audio-reveal-play { width: 86px; height: 86px; }
+  .audio-reveal-player strong { font-size: 29px; }
+}
+
+@media (max-width: 390px) {
+  .audio-reveal-guess-row { grid-template-columns: 1fr; }
+  .audio-reveal-skip { min-height: 46px; }
+}
