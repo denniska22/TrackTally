@@ -18,7 +18,7 @@ test('five first-attempt wins finish at 670 points and cannot be scored twice', 
 });
 
 test('six skips reveal each song, extend clips and complete a zero-point game', () => {
-  const game = new Game(tracks.slice(0, 5), 'rock');
+  const game = new Game(tracks.slice(0, 5), 'hip-hop');
   assert.equal(game.next(), false);
   for (let round = 0; round < 5; round++) {
     for (let attempt = 0; attempt < 6; attempt++) {

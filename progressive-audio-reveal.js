@@ -157,11 +157,10 @@
         if (error) throw error.reason;
       }
     } else {
-      const genres = category === 'all' ? sampleGenres() : [category, category];
-      for (let index = 0; index < genres.length; index++) {
+      for (let index = 0; index < 2; index++) {
         // Search has a maximum page size of 10. Different pages broaden the pool.
-        const offset = category === 'all' ? 0 : index * 10;
-        const query = new URLSearchParams({ q: `genre:"${genres[index]}"`, type: 'track', limit: '10', offset: String(offset) });
+        const offset = index * 10;
+        const query = new URLSearchParams({ q: `genre:"${category}"`, type: 'track', limit: '10', offset: String(offset) });
         const data = await api.request(`/search?${query}`);
         tracks.push(...(data.tracks?.items || []));
       }
@@ -170,11 +169,6 @@
     if (tracks.length < 5) throw new Error(category === 'taste' ? 'Für „Mein Geschmack“ brauchst du mindestens fünf verfügbare Top- oder Lieblingssongs. Wähle sonst eine andere Kategorie.' : 'In dieser Kategorie wurden nicht genügend spielbare Songs gefunden. Wähle eine andere Kategorie oder lade erneut.');
     catalogs.set(category, tracks);
     return tracks;
-  }
-  function sampleGenres() {
-    const pool = Object.keys(GENRES).filter(key => !['taste', 'all'].includes(key));
-    for (let index = pool.length - 1; index > 0; index--) { const other = Math.floor(Math.random() * (index + 1)); [pool[index], pool[other]] = [pool[other], pool[index]]; }
-    return pool.slice(0, 5);
   }
   async function start(category = genre, restore = false) {
     const request = ++loadId;

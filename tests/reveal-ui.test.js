@@ -76,7 +76,7 @@ test('disconnected page has no playable controls and explains the Spotify requir
 test('actual UI supports a full five-song game, restore and clipboard fallback', async () => {
   const { ids, sessionStorage } = setup(); await tick();
   assert.equal(ids.revealPlay.disabled, false);
-  assert.equal(ids.revealGenres.children.length, 9);
+  assert.deepEqual(ids.revealGenres.children.map(button => button.textContent), ['Mein Geschmack', 'Pop', 'Hip-Hop']);
   for (let round = 0; round < 5; round++) {
     for (let attempt = 0; attempt < 6; attempt++) { ids.revealSkip.emit('click'); await tick(); }
     if (round < 4) { assert.equal(ids.revealAnswer.hidden, false); ids.revealNext.emit('click'); }

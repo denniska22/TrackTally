@@ -8,7 +8,7 @@
     { label: 'Expert', color: '#f87171', clips: [.05, .1, .3, .8, 2, 4], multiplier: 1.5 },
     { label: 'Impossible', color: '#b99aff', clips: [.03, .08, .15, .4, 1, 2], multiplier: 1.75 }
   ]);
-  const GENRES = Object.freeze({ taste: 'Mein Geschmack', all: 'Alle Genres', pop: 'Pop', rock: 'Rock', 'hip-hop': 'Hip-Hop', electronic: 'Electronic', country: 'Country', 'r&b': 'R&B', indie: 'Indie' });
+  const GENRES = Object.freeze({ taste: 'Mein Geschmack', pop: 'Pop', 'hip-hop': 'Hip-Hop' });
   const POINTS = [100, 85, 70, 55, 40, 25];
   const normalize = value => String(value || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const title = value => normalize(String(value || '').replace(/\s*[-–(]\s*(?:\d{4}\s+)?remaster(?:ed)?[^)]*\)?$/i, ''));

@@ -9,7 +9,7 @@ Eine private, statische Spotify-Quizseite für dich und deine Freunde. Sie enth�
 - Fünf verschiedene Songs, automatisch von Easy bis Impossible, mit je sechs Versuchen.
 - Fehler und Überspringen verlängern den Ausschnitt; erneutes Anhören verbraucht keinen Versuch.
 - Songsuche nach Titel oder Artist mit Tastaturbedienung und ausdrücklicher Antwortabgabe. Doppelte falsche Antworten kosten keinen weiteren Versuch.
-- „Mein Geschmack“ kombiniert bis zu 50 Top-Songs und 50 gespeicherte Titel. Alternativ stehen ein Genre-Mix sowie Pop, Rock, Hip-Hop, Electronic, Country, R&B und Indie zur Auswahl. Ein Kategorienwechsel beginnt eine neue Runde.
+- „Mein Geschmack“ kombiniert bis zu 50 Top-Songs und 50 gespeicherte Titel. Alternativ stehen Pop und Hip-Hop zur Auswahl. Ein Kategorienwechsel beginnt eine neue Runde.
 - Auflösung nach jedem Song, Gesamtwertung, kopierbarer Ergebnistext und eine PNG-Ergebniskarte. Der Spielstand wird im aktuellen Tab gespeichert und beim Neuladen wiederhergestellt.
 
 | Stufe | Ausschnitte in Sekunden | Punktefaktor |
