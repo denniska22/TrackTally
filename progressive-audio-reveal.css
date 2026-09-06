@@ -1,9 +1,89 @@
 :root {
+  --reveal-accent: #3bd4a0;
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #0d0b0a;
   color: #f7f3ee;
 }
+
+[hidden] { display: none !important; }
+button:disabled { cursor: not-allowed; opacity: .45; transform: none !important; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid #84aaff; outline-offset: 4px; }
+a { color: #94b6ff; }
+.reveal-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 35px; font-size: 14px; }
+.reveal-nav a { text-decoration: none; }
+.reveal-nav button, .reveal-actions button { min-height: 42px; border: 1px solid #393634; border-radius: 22px; background: #201e1d; color: #f7f3ee; padding: 10px 16px; font-size: 14px; }
+.reveal-score { color: #e4e7eb; font-size: 14px; font-variant-numeric: tabular-nums; margin: 16px 0 0; }
+.reveal-stages { list-style: none; margin: 0; padding: 0; }
+.reveal-stages li { display: flex; align-items: center; }
+.reveal-category-hint { margin: -3px 0 0; color: #a7a4a0; font-size: 13px; text-align: center; }
+.reveal-status { color: #afbdcd; font-size: 14px; line-height: 1.6; margin: 24px 0 0; text-align: center; }
+.reveal-status.error { color: #ffa0ae; }
+.reveal-primary, .reveal-actions .reveal-primary { min-height: 46px; padding: 12px 20px; border: 0; border-radius: 24px; font-size: 14px; font-weight: 750; background: var(--reveal-accent); color: #101611; }
+#revealRetry { display: block; margin: 16px auto; }
+.audio-reveal-page .audio-reveal-game { margin-top: 27px; }
+.audio-reveal-page .audio-reveal-pill.active.difficulty, .audio-reveal-page .audio-reveal-play { background: var(--reveal-accent); }
+.reveal-stages .stage-won { color: #86e3b3; }
+.reveal-stages .stage-lost { color: #efa0ab; }
+.audio-reveal-page .audio-reveal-player strong { color: var(--reveal-accent); font-variant-numeric: tabular-nums; }
+.audio-reveal-player small { display: block; margin-top: 5px; font-size: 14px; color: #a7b3c2; }
+.audio-reveal-play.playing span { width: 20px; height: 25px; border: 0; margin: 0; background: linear-gradient(to right, #092018 0 32%, transparent 32% 68%, #092018 68%); }
+.reveal-clip-meter { height: 4px; border-radius: 4px; overflow: hidden; background: #292725; margin: -3px 0 17px; }
+.reveal-clip-meter span { display: block; height: 100%; width: 0; background: var(--reveal-accent); }
+.reveal-volume { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 24px; font-size: 14px; color: #afbdcd; }
+.reveal-volume input { min-width: 50px; width: 125px; accent-color: var(--reveal-accent); }
+.reveal-volume output { width: 42px; font-variant-numeric: tabular-nums; }
+.reveal-search-wrap { position: relative; min-width: 0; }
+.reveal-suggestions { position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 5; max-height: 300px; overflow-y: auto; margin: 0; padding: 5px; list-style: none; border: 1px solid #4e4843; border-radius: 18px; background: #201e1d; box-shadow: 0 16px 40px #0009; }
+.reveal-suggestion { padding: 10px; cursor: pointer; border-radius: 12px; }
+.reveal-suggestion:hover, .reveal-suggestion[aria-selected="true"] { background: #39342f; }
+.reveal-suggestion .reveal-track-info img { width: 38px; height: 38px; }
+.reveal-suggestion strong { font-size: 14px; }
+.reveal-suggestion small { font-size: 13px; }
+.reveal-selection { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 14px; }
+.reveal-selection p { margin: 0; font-size: 14px; color: #c9d6e5; overflow-wrap: anywhere; }
+.reveal-selection button { flex-shrink: 0; }
+.audio-reveal-page .audio-reveal-meta { font-size: 14px; }
+.reveal-feedback { font-size: 14px; color: #e3c78f; text-align: center; line-height: 1.5; }
+.reveal-feedback:empty { display: none; }
+.reveal-attempts { display: grid; gap: 8px; padding: 0; margin: 18px 0 0; list-style: none; }
+.reveal-attempts li { padding: 12px 15px; border: 1px solid #4a3236; border-radius: 12px; background: #241a1c; color: #f4b7c0; font-size: 14px; overflow-wrap: anywhere; }
+.reveal-attempts li.won { color: #92ecc3; border-color: #285240; background: #162a22; }
+.reveal-card { margin-top: 30px; padding: 28px; border: 1px solid #39332e; border-radius: 22px; background: #171412; text-align: center; }
+.reveal-card p { color: #b9c4d0; font-size: 14px; line-height: 1.6; }
+.reveal-eyebrow { text-transform: uppercase; letter-spacing: .13em; margin-top: 0; }
+.reveal-points { display: block; font-size: clamp(32px, 8vw, 44px); color: var(--reveal-accent); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.reveal-track { display: grid; justify-items: center; gap: 12px; margin-top: 22px; }
+.reveal-track-info { display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; }
+.reveal-track-info img { flex: 0 0 auto; border-radius: 8px; object-fit: cover; }
+.reveal-track-info div { min-width: 0; }
+.reveal-track-info strong, .reveal-track-info small { display: block; overflow-wrap: anywhere; }
+.reveal-track-info strong { font-size: 16px; line-height: 1.4; }
+.reveal-track-info small { font-size: 14px; color: #b0bccb; margin-top: 3px; }
+.reveal-spotify-link { font-size: 14px; text-underline-offset: 3px; }
+.reveal-result-rows { display: grid; gap: 0; margin: 24px 0; padding: 0; list-style: none; text-align: left; }
+.reveal-result-rows > li { padding: 20px 0; border-bottom: 1px solid #39332e; }
+.reveal-result-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 14px; }
+.reveal-result-heading span { color: #b9c4d0; }
+.reveal-result-marks { display: flex; gap: 6px; margin: 12px 0; }
+.reveal-result-marks span { display: grid; place-items: center; height: 25px; width: 25px; border-radius: 5px; font-size: 14px; }
+.reveal-result-marks .won { color: #081b11; background: #3bd4a0; }
+.reveal-result-marks .miss { color: #ffccd2; background: #703945; }
+.reveal-result-marks .pending { color: #c8bcb1; background: #332d29; }
+.reveal-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.reveal-actions .reveal-primary { flex-basis: 100%; }
+#revealShareFallback { width: 100%; min-height: 180px; margin-top: 20px; color: #f7f3ee; background: #201e1d; border: 1px solid #69605a; border-radius: 12px; padding: 12px; font: inherit; font-size: 14px; }
+.reveal-help { margin-top: 30px; color: #b0bccb; font-size: 14px; line-height: 1.65; }
+.reveal-help summary { width: fit-content; margin: auto; cursor: pointer; }
+.reveal-help p { font-size: 16px; }
+@media (max-width: 530px) {
+  .reveal-nav { margin-bottom: 26px; }
+  .reveal-card { padding: 20px; }
+  .reveal-selection { align-items: stretch; flex-direction: column; }
+  .reveal-stages { gap: 6px; }
+  .audio-reveal-page .audio-reveal-pill { font-size: 14px; padding: 0 12px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
 
 * { box-sizing: border-box; }
 
@@ -71,3 +151,5 @@ button { cursor: pointer; }
   .audio-reveal-guess-row { grid-template-columns: 1fr; }
   .audio-reveal-skip { min-height: 46px; }
 }
+
+.audio-reveal-page button:focus-visible { outline: 2px solid #84aaff; outline-offset: 4px; }

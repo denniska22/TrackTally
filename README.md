@@ -2,6 +2,30 @@
 
 Eine private, statische Spotify-Quizseite für dich und deine Freunde. Sie enthält einen vollständigen Browser-Login über **OAuth 2.0 mit PKCE** – ohne Client Secret im Frontend – sowie einen spielbaren Demo-Modus.
 
+## Progressive Audio Reveal
+
+Über die Quizauswahl oder `progressive-audio-reveal.html` erreichbar. Dieser Modus nutzt die bestehende Spotify-Anmeldung und benötigt Spotify Premium zur Wiedergabe. Der Demo-Modus des klassischen Quiz bleibt separat verfügbar.
+
+- Fünf verschiedene Songs, automatisch von Easy bis Impossible, mit je sechs Versuchen.
+- Fehler und Überspringen verlängern den Ausschnitt; erneutes Anhören verbraucht keinen Versuch.
+- Songsuche nach Titel oder Artist mit Tastaturbedienung und ausdrücklicher Antwortabgabe. Doppelte falsche Antworten kosten keinen weiteren Versuch.
+- „Mein Geschmack“ kombiniert bis zu 50 Top-Songs und 50 gespeicherte Titel. Alternativ stehen ein Genre-Mix sowie Pop, Rock, Hip-Hop, Electronic, Country, R&B und Indie zur Auswahl. Ein Kategorienwechsel beginnt eine neue Runde.
+- Auflösung nach jedem Song, Gesamtwertung, kopierbarer Ergebnistext und eine PNG-Ergebniskarte. Der Spielstand wird im aktuellen Tab gespeichert und beim Neuladen wiederhergestellt.
+
+| Stufe | Ausschnitte in Sekunden | Punktefaktor |
+| --- | --- | --- |
+| Easy | 1 / 2 / 4 / 7 / 11 / 16 | 1 |
+| Medium | 0,1 / 0,5 / 1 / 2 / 4 / 8 | 1,15 |
+| Hard | 0,08 / 0,2 / 0,5 / 1 / 2 / 4 | 1,3 |
+| Expert | 0,05 / 0,1 / 0,3 / 0,8 / 2 / 4 | 1,5 |
+| Impossible | 0,03 / 0,08 / 0,15 / 0,4 / 1 / 2 | 1,75 |
+
+Eine richtige Antwort erhält je nach Versuch 100 / 85 / 70 / 55 / 40 / 25 Basispunkte, multipliziert mit dem Stufenfaktor und pro Song gerundet. Maximal sind 670 Punkte möglich. Ausschnittlängen und Wertung orientieren sich an [tastedtracks](https://www.tastedtracks.com/game); die Implementierung verwendet TrackTallys eigenen Spotify-Zugang.
+
+Die Wiedergabe wird zunächst stumm vorbereitet und für jeden Versuch zur gleichen Position zurückgesetzt. Sie stoppt über das lokale Spotify SDK, auch beim Tabwechsel. Browser- und SDK-Latenz können besonders bei sehr kurzen Ausschnitten die tatsächliche Dauer beeinflussen; eine samplegenaue Grenze ist beim Spotify-Stream nicht garantiert. Technische Wiedergabefehler verbrauchen keinen Versuch. Der Spotify-Login kehrt über die bereits registrierte Root-Adresse zu diesem Modus zurück; eine zusätzliche Redirect URI ist nicht erforderlich.
+
+Prüfungen ohne externe Abhängigkeiten: `node --test tests/reveal-game.test.js tests/reveal-player.test.js tests/reveal-ui.test.js`. Die Tests verwenden Spotify-Testobjekte und prüfen Spielregeln, Audio-Abbrüche, den vollständigen UI-Ablauf, Speichern/Neuladen und die Login-Rückkehr. Echte Spotify-Wiedergabe muss mit einem freigeschalteten Premium-Konto im Browser überprüft werden.
+
 ## Lokal ansehen
 
 Öffne `index.html` in einem Browser. Der Demo-Modus funktioniert sofort. Für den Spotify-Login muss die Seite über `http://localhost` oder HTTPS ausgeliefert werden; eine `file://`-Adresse ist keine gültige Redirect URI.

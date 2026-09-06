@@ -285,6 +285,11 @@
     if (!configured()) return showConfigModal();
     if (useCooldown && syncSpotifyLoginCooldownButton()) return;
     if (useCooldown) startSpotifyLoginCooldown();
+    if (window.location.pathname.endsWith('/progressive-audio-reveal.html')) {
+      sessionStorage.setItem('tracktally_return_to_reveal', 'true');
+    } else {
+      sessionStorage.removeItem('tracktally_return_to_reveal');
+    }
     if (window.location.pathname.endsWith('/play.html')) {
       sessionStorage.setItem('tracktally_return_to_play', 'true');
       const artistId = artistIdFromUrl();
@@ -319,6 +324,8 @@
       clearSpotifySessionCache();
       setToken({ ...data, expires_at: Date.now() + data.expires_in * 1000 });
       clearSpotifyLoginCooldown();
+      const returnToReveal = sessionStorage.getItem('tracktally_return_to_reveal') === 'true';
+      sessionStorage.removeItem('tracktally_return_to_reveal');
       const returnToPlay = sessionStorage.getItem('tracktally_return_to_play') === 'true';
       const artistQuizId = sessionStorage.getItem('tracktally_artist_quiz') || '';
       const playlistQuizId = sessionStorage.getItem('tracktally_playlist_quiz') || '';
@@ -328,6 +335,7 @@
       sessionStorage.removeItem('tracktally_playlist_quiz');
       sessionStorage.removeItem('tracktally_quiz_type');
       cleanUrl();
+      if (returnToReveal) { window.location.replace(new URL('progressive-audio-reveal.html', appRootUrl()).href); return true; }
       if (returnToPlay && !window.location.pathname.endsWith('/play.html')) { window.location.replace(playPageUrl(artistQuizId, playlistQuizId, quizType)); return true; }
       await loadSpotifyProfile();
     } catch (error) { showMessage(`Spotify-Verbindung fehlgeschlagen: ${error.message}`); cleanUrl(); }
@@ -1389,6 +1397,18 @@
 
 
 
+
+  // Share PKCE, refresh handling and rate limits without starting the other quiz.
+  if (document.body.classList.contains('audio-reveal-page')) {
+    window.TrackTallySpotify = Object.freeze({
+      request: spotifyRequest,
+      token: freshToken,
+      hasSession: () => Boolean(tokenData()),
+      hasScopes: () => ['streaming', 'user-modify-playback-state', 'user-library-read', 'user-top-read'].every(scope => (tokenData()?.scope || '').split(' ').includes(scope)),
+      connect: beginSpotifyLogin
+    });
+    return;
+  }
 
   elements.connect?.addEventListener('click', beginSpotifyLogin);
   elements.artistConnect?.addEventListener('click', beginSpotifyLogin);

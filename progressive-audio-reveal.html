@@ -3,47 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#08101d" />
+    <meta name="theme-color" content="#0d0b0a" />
+    <meta name="description" content="Fünf Songs, sechs Versuche: Errate deine Spotify-Songs aus immer längeren Ausschnitten." />
     <title>TrackTally – Progressive Audio Reveal</title>
     <link rel="stylesheet" href="progressive-audio-reveal.css" />
+    <script src="spotify.config.js" defer></script>
+    <script src="app.js" defer></script>
+    <script src="reveal-game.js" defer></script>
+    <script src="reveal-player.js" defer></script>
+    <script src="progressive-audio-reveal.js" defer></script>
   </head>
   <body class="audio-reveal-page">
     <main class="audio-reveal-shell">
+      <nav class="reveal-nav" aria-label="Navigation"><a href="quiz-type.html">← Quizauswahl</a><button id="revealConnect" type="button">Spotify verbinden</button></nav>
       <header class="audio-reveal-intro">
         <p class="audio-reveal-kicker">MUSIC GUESSING GAME</p>
         <h1>track<span>tally</span></h1>
-        <p class="audio-reveal-description">Spiele 5 Songs von leicht bis unmöglich. Errate jeden Titel und teile dein Ergebnis.</p>
+        <p class="audio-reveal-description">5 Songs von Easy bis Impossible. Sechs Versuche pro Song – nach jedem Fehler hörst du mehr.</p>
+        <p id="revealScore" class="reveal-score">Song 1 / 5 · 0 Punkte</p>
       </header>
-
       <section class="audio-reveal-controls" aria-label="Quiz-Einstellungen">
-        <div class="audio-reveal-pills" role="group" aria-label="Schwierigkeit">
-          <button class="audio-reveal-pill active difficulty" type="button">Easy</button>
-          <button class="audio-reveal-pill difficulty" type="button">Medium</button>
-          <button class="audio-reveal-pill difficulty" type="button">Hard</button>
-          <button class="audio-reveal-pill difficulty" type="button">Expert</button>
-          <button class="audio-reveal-pill difficulty" type="button">Impossible</button>
-        </div>
-        <div class="audio-reveal-pills" role="group" aria-label="Kategorie">
-          <button class="audio-reveal-pill active genre" type="button">Mein Geschmack</button>
-          <button class="audio-reveal-pill genre" type="button">Alle Genres</button>
-          <button class="audio-reveal-pill genre" type="button">Pop</button>
-          <button class="audio-reveal-pill genre" type="button">Rock</button>
-          <button class="audio-reveal-pill genre" type="button">Hip-Hop</button>
-        </div>
+        <ol id="revealStages" class="audio-reveal-pills reveal-stages" aria-label="Schwierigkeitsstufen"></ol>
+        <div id="revealGenres" class="audio-reveal-pills" role="group" aria-label="Kategorie"></div>
+        <p class="reveal-category-hint">Eine andere Kategorie startet eine neue Runde.</p>
       </section>
-
-      <section class="audio-reveal-game" aria-label="Progressive Audio Reveal">
-        <div class="audio-reveal-progress" aria-label="Fortschritt: Runde 1 von 5"><span></span><i></i><i></i><i></i><i></i></div>
+      <p id="revealStatus" class="reveal-status" role="status" aria-live="polite">Verbinde Spotify, um mit deinen Songs zu spielen. Für die Wiedergabe brauchst du Spotify Premium.</p>
+      <button id="revealRetry" class="reveal-primary" type="button" hidden>Erneut laden</button>
+      <section id="revealGame" class="audio-reveal-game" aria-label="Aktueller Song">
+        <div id="revealProgress" class="audio-reveal-progress" role="progressbar" aria-label="Abgeschlossene Songs" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div>
         <div class="audio-reveal-player">
-          <button class="audio-reveal-play" type="button" aria-label="Wiedergabe starten"><span aria-hidden="true"></span></button>
-          <strong>1.0s</strong>
+          <button id="revealPlay" class="audio-reveal-play" type="button" aria-label="Ausschnitt abspielen" disabled><span aria-hidden="true"></span></button>
+          <div><strong id="revealDuration">1,0 s</strong><small id="revealPlaybackLabel">Ausschnitt</small></div>
         </div>
-        <div class="audio-reveal-guess-row">
-          <label class="audio-reveal-search" for="audioRevealSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.5"></circle><path d="m16 16 4.25 4.25"></path></svg><input id="audioRevealSearch" type="search" placeholder="Songs suchen …" /></label>
-          <button class="audio-reveal-skip" type="button"><span aria-hidden="true">⏭</span>Überspringen</button>
-        </div>
-        <p class="audio-reveal-meta">0 / 6 Versuche · Easy · Mein Geschmack</p>
+        <div id="revealClipMeter" class="reveal-clip-meter" aria-hidden="true"><span></span></div>
+        <div class="reveal-volume"><label for="revealVolume">Lautstärke</label><input id="revealVolume" type="range" min="0" max="100" value="65" /><output id="revealVolumeValue" for="revealVolume">65 %</output></div>
+        <form id="revealGuessForm" autocomplete="off">
+          <div class="audio-reveal-guess-row">
+            <div class="reveal-search-wrap">
+              <label class="audio-reveal-search" for="audioRevealSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.5"></circle><path d="m16 16 4.25 4.25"></path></svg><input id="audioRevealSearch" type="search" placeholder="Song oder Artist suchen …" aria-label="Song oder Artist suchen" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="revealSuggestions" disabled /></label>
+              <ul id="revealSuggestions" class="reveal-suggestions" role="listbox" aria-label="Songvorschläge" hidden></ul>
+            </div>
+            <button id="revealSkip" class="audio-reveal-skip" type="button" disabled><span aria-hidden="true">⏭</span>Überspringen</button>
+          </div>
+          <div id="revealSelection" class="reveal-selection" hidden><p id="revealSelectedName"></p><button id="revealSubmit" class="reveal-primary" type="submit" disabled>Antwort abgeben</button></div>
+        </form>
+        <p id="revealMeta" class="audio-reveal-meta">0 / 6 Versuche · Easy · Mein Geschmack</p>
+        <p id="revealFeedback" class="reveal-feedback" role="status"></p>
+        <ol id="revealAttempts" class="reveal-attempts" aria-label="Deine Versuche"></ol>
       </section>
+      <section id="revealAnswer" class="reveal-card" aria-labelledby="revealAnswerTitle" hidden>
+        <p id="revealAnswerTitle" class="reveal-eyebrow"></p><strong id="revealRoundPoints" class="reveal-points"></strong>
+        <div id="revealAnswerTrack" class="reveal-track"></div>
+        <p id="revealAnswerCopy"></p><button id="revealNext" class="reveal-primary" type="button">Nächster Song →</button>
+      </section>
+      <section id="revealResults" class="reveal-card" aria-labelledby="revealResultsTitle" hidden>
+        <p id="revealResultsTitle" class="reveal-eyebrow">Runde abgeschlossen</p><strong id="revealTotal" class="reveal-points"></strong>
+        <p id="revealSummary"></p><ol id="revealResultRows" class="reveal-result-rows"></ol>
+        <div class="reveal-actions"><button id="revealCopy" type="button">Ergebnis kopieren</button><button id="revealDownload" type="button">Ergebniskarte speichern</button><button id="revealCopyLink" type="button">Spiellink kopieren</button><button id="revealRestart" class="reveal-primary" type="button">Neue Runde spielen</button></div>
+        <textarea id="revealShareFallback" aria-label="Ergebnis zum manuellen Kopieren" readonly hidden></textarea>
+        <p id="revealShareStatus" role="status"></p>
+      </section>
+      <details class="reveal-help"><summary>So funktioniert’s</summary><p>Errate fünf verschiedene Songs nacheinander. Die Stufen werden automatisch schwieriger. Suche einen Song, wähle ihn aus und gib deine Antwort ab. Fehler und Überspringen verbrauchen einen Versuch und verlängern den Ausschnitt. Anhören kostet keinen Versuch.</p><p>Für richtige Antworten gibt es 100, 85, 70, 55, 40 oder 25 Basispunkte. Medium zählt ×1,15, Hard ×1,3, Expert ×1,5 und Impossible ×1,75. Maximal sind 670 Punkte möglich.</p><p>„Mein Geschmack“ verwendet deine häufig gehörten und gespeicherten Spotify-Songs. Dein Fortschritt bleibt beim Neuladen in diesem Tab erhalten. Sehr kurze Ausschnitte können bei Spotify je nach Browser leicht verzögert stoppen.</p></details>
+      <noscript><p>Bitte aktiviere JavaScript, um das Quiz zu spielen.</p></noscript>
     </main>
   </body>
 </html>
