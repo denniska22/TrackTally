@@ -30,7 +30,7 @@ async function fixture({ ignorePause = false, hangPause = false, noState = false
     pause: async (device, signal) => { calls.push(['remote-pause', device]); if (pause) return pause(device, signal, state); state.paused = true; }
   };
   globalThis.Spotify = { Player: function () { return sdk; } };
-  const player = new RevealPlayer(api, { sdk: async () => {}, onError: message => errors.push(message), timeouts: { startup: 150, command: 40, stop: 40, remote: 60 } });
+  const player = new RevealPlayer(api, { sdk: async () => {}, onError: message => errors.push(message), timeouts: { startup: 150, command: 40, stop: 40, confirm: 120, settle: 200, remote: 60 } });
   await player.prepare();
   return { player, sdk, api, calls, errors, state };
 }
@@ -62,7 +62,7 @@ test('one positioned start stops a 30ms clip without a pause-seek-resume sequenc
   assert.deepEqual(errors, []);
 });
 
-test('the clip timer runs before a delayed play response, and late acceptance is stopped again', async () => {
+test('the clip timer runs before a delayed play response and rechecks the stop after acceptance', async () => {
   let release;
   const { player, sdk, state, calls } = await fixture({ request: async (url, options, state, sdk) => {
     if (!url.startsWith('/me/player/play?')) return;
@@ -73,21 +73,23 @@ test('the clip timer runs before a delayed play response, and late acceptance is
   const playing = player.play(track, .03);
   await delay(70);
   assert.equal(state.paused, true);
-  assert.equal(player.phase, 'idle');
-  assert.ok(calls.includes('disconnect'));
+  assert.equal(player.phase, 'stopping');
   release(); await playing; await delay(5);
+  await player.stop();
   assert.equal(state.paused, true);
-  assert.equal(calls.filter(call => Array.isArray(call) && call[0] === 'remote-pause').length, 2);
+  assert.equal(player.phase, 'idle');
+  assert.equal(calls.includes('disconnect'), false);
+  assert.equal(calls.filter(call => call === 'local-pause').length, 2);
 });
 
 test('missing SDK state and events cannot leave a started song playing indefinitely', async () => {
   const { player, state, errors, calls } = await fixture({ noState: true, noEvents: true });
   await player.play(track, 1);
   assert.equal(state.paused, false);
-  await delay(240);
+  await delay(170);
+  await player.stop();
   assert.equal(state.paused, true);
   assert.equal(player.phase, 'idle');
-  assert.ok(calls.includes('disconnect'));
   assert.match(errors[0], /Audiostart nicht bestätigt/);
 });
 
@@ -95,9 +97,8 @@ test('a hung SDK pause cannot block the independent API stop or lock the UI', as
   const { player, sdk, state, calls } = await fixture({ hangPause: true });
   await player.play(track, 1);
   sdk.emit('playback_error', { message: 'Connection lost' });
-  await delay(5);
+  await player.stop();
   assert.equal(state.paused, true);
-  await delay(70);
   assert.equal(player.phase, 'idle');
   assert.ok(calls.includes('disconnect'));
 });
@@ -125,13 +126,14 @@ test('cancellation during device transfer never sends the subsequent play comman
 });
 
 test('duplicate clicks and a click during stop cannot start competing clips', async () => {
-  let releaseStop;
-  const { player, calls } = await fixture({ pause: async (device, signal, state) => new Promise(resolve => { releaseStop = () => { state.paused = true; resolve(); }; }) });
+  let releaseMute;
+  const { player, sdk, calls } = await fixture();
   await Promise.all([player.play(track, 1), player.play(track, 1)]);
+  sdk.setVolume = () => new Promise(resolve => { releaseMute = resolve; });
   const stopping = player.stop();
   await player.play(track, 1);
   assert.equal(calls.filter(call => call?.url?.startsWith('/me/player/play?')).length, 1);
-  releaseStop(); await stopping;
+  releaseMute(); await stopping;
   assert.equal(player.phase, 'idle');
 });
 
@@ -152,4 +154,94 @@ test('a request error stops cleanly and permits retry', async () => {
   await player.play(track, 1);
   assert.equal(player.phase, 'idle');
   assert.deepEqual(errors, ['Rate limited']);
+});
+
+test('an already stopped clip does not send another pause when its answer is submitted', async () => {
+  const { player, calls } = await fixture();
+  await player.play(track, 1);
+  await player.stop();
+  const before = calls.length;
+  await player.stop();
+  assert.equal(calls.length, before);
+});
+
+test('a short clip waits for its accepted start response without aborting or replacing the player', async () => {
+  let releaseStart, startSignal;
+  const { player, api, sdk, state, errors, calls } = await fixture();
+  // Easy completes first on the same player used by the next song.
+  await player.play(track, 1);
+  await player.stop();
+  const medium = { ...track, uri: 'spotify:track:medium' };
+  api.request = async (url, options) => {
+    if (!url.startsWith('/me/player/play?')) return;
+    startSignal = options.signal;
+    state.paused = false;
+    state.track_window.current_track = medium;
+    sdk.emit('player_state_changed', { ...state });
+    return new Promise(resolve => { releaseStart = resolve; });
+  };
+  const playing = player.play(medium, .1);
+  await delay(120);
+  assert.equal(state.paused, true);
+  assert.equal(startSignal.aborted, false);
+  releaseStart();
+  await playing;
+  await player.stop();
+  assert.equal(player.player, sdk);
+  assert.equal(calls.includes('disconnect'), false);
+  assert.deepEqual(errors, []);
+});
+
+test('delayed SDK pause confirmation does not trigger a false disconnect', async () => {
+  const { player, sdk, state, calls, errors } = await fixture();
+  await player.play(track, 1);
+  let reads = 0;
+  sdk.getCurrentState = async () => ({ ...state, paused: ++reads >= 3 });
+  await player.stop();
+  assert.equal(player.player, sdk);
+  assert.equal(calls.includes('disconnect'), false);
+  assert.deepEqual(errors, []);
+});
+
+test('a stale Easy pause event cannot stop the currently playing Medium song', async () => {
+  const { player, sdk, state, errors } = await fixture();
+  await player.play(track, 1);
+  await player.stop();
+  const medium = { ...track, uri: 'spotify:track:medium' };
+  state.track_window.current_track = medium;
+  await player.play(medium, .1);
+  sdk.emit('player_state_changed', { paused: true, track_window: { current_track: track } });
+  await delay(10);
+  assert.equal(player.phase, 'playing');
+  assert.equal(state.paused, false);
+  await player.stop();
+  assert.deepEqual(errors, []);
+});
+
+test('server-confirmed pause remains valid when SDK state stays stale', async () => {
+  const { player, sdk, state, errors } = await fixture();
+  await player.play(track, 1);
+  sdk.getCurrentState = async () => ({ ...state, paused: false });
+  await player.stop();
+  assert.equal(state.paused, true);
+  assert.equal(player.player, sdk);
+  assert.deepEqual(errors, []);
+});
+
+test('a start accepted after the bounded stop has finished still stops the old device', async () => {
+  let release;
+  const { player, state, calls } = await fixture({ request: async (url, options, state, sdk) => {
+    if (!url.startsWith('/me/player/play?')) return;
+    state.paused = false;
+    sdk.emit('player_state_changed', { ...state });
+    return new Promise(resolve => { release = () => { state.paused = false; resolve(); }; });
+  } });
+  const playing = player.play(track, .03);
+  await delay(260);
+  assert.equal(state.paused, true);
+  assert.equal(player.phase, 'idle');
+  assert.ok(calls.includes('disconnect'));
+  release(); await playing; await delay(5);
+  assert.equal(state.paused, true);
+  assert.ok(calls.some(call => Array.isArray(call) && call[0] === 'remote-pause' && call[1] === 'test-device'));
 });

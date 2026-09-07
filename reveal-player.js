@@ -31,7 +31,7 @@
       this.onState = onState;
       this.onError = onError;
       this.sdk = sdk;
-      this.timeouts = { startup: 8000, command: 1500, stop: 500, remote: 2500, ...timeouts };
+      this.timeouts = { startup: 8000, command: 1500, stop: 500, confirm: 1500, settle: 2500, remote: 2500, ...timeouts };
       this.volume = .65;
       this.phase = 'idle';
       this.player = null;
@@ -99,31 +99,61 @@
       controller.abort();
       return result;
     }
+    async confirmPaused(player) {
+      if (!player) return false;
+      const deadline = performance.now() + this.timeouts.confirm;
+      do {
+        const state = await attempt(() => player.getCurrentState(), Math.min(this.timeouts.stop, Math.max(1, deadline - performance.now())));
+        if (state.ok && state.value?.paused === true) return true;
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) return false;
+        await new Promise(resolve => setTimeout(resolve, Math.min(40, remaining)));
+      } while (performance.now() < deadline);
+      return false;
+    }
     stop() {
       if (this.stopping) return this.stopping;
       const op = this.operation;
+      // Answer submission and navigation may call stop after the clip ended.
+      // Sending new commands to an idle device can produce spurious 404 errors.
+      if (!op && this.phase === 'idle') return Promise.resolve();
       const player = op?.player || this.player;
       // Keep the exact target even if a not_ready event disconnects the SDK.
       const device = op?.device || this.device;
       if (op) {
         op.cancelled = true;
-        op.controller.abort();
+        // A 30–100 ms clip can end before its accepted start request returns.
+        // Abort queued starts, but let an already playing start settle normally.
+        if (!op.started) op.controller.abort();
         clearTimeout(op.startTimer); clearTimeout(op.clipTimer); clearTimeout(op.pollTimer); clearInterval(op.meterTimer);
       }
       this.state('stopping');
       this.stopping = (async () => {
-        // Both stop paths run immediately; a hung SDK must not block the Web API.
-        const remote = this.remoteStop(device);
+        // Stop audible playback immediately. Await the mute too, so an old mute
+        // cannot race with the next song's volume setting.
         const local = player ? attempt(() => player.pause(), this.timeouts.stop) : Promise.resolve({ ok: false });
-        if (player) void attempt(() => player.setVolume(0), this.timeouts.stop);
-        const [localResult, remoteResult] = await Promise.all([local, remote]);
-        const state = player ? await attempt(() => player.getCurrentState(), this.timeouts.stop) : { ok: false };
-        const confirmed = state.ok && state.value?.paused === true;
-        // Never trust only a resolved pause promise or an absent player state.
-        // A cancelled in-flight start also retires its device so it cannot leak
-        // into a subsequent clip after a late network response.
-        if (!confirmed || !localResult.ok || op?.requestPending) this.retire(player);
-        if (!confirmed && !remoteResult.ok && device) this.onError('Spotify konnte den Stopp nicht bestätigen. Die Player-Verbindung wurde getrennt. Bitte stoppe gegebenenfalls die Wiedergabe in Spotify.');
+        const mute = player ? attempt(() => player.setVolume(0), this.timeouts.command) : Promise.resolve({ ok: false });
+        const pendingStart = Boolean(op?.started && op.requestPending);
+        if (pendingStart) {
+          await attempt(() => op.startSettled, this.timeouts.settle);
+          // Preserve ordering on Spotify's side before using the API fallback.
+          if (op.requestPending) op.controller.abort();
+        }
+        let [localResult, muteResult] = await Promise.all([local, mute]);
+        if (pendingStart && !op.requestPending && player) {
+          localResult = await attempt(() => player.pause(), this.timeouts.stop);
+        }
+        // SDK state often lags a successful pause; allow it to converge before
+        // treating the stop as a failure or issuing another API command.
+        let confirmed = localResult.ok && await this.confirmPaused(player);
+        if (!confirmed) {
+          const remoteResult = await this.remoteStop(device);
+          // HTTP 204 is also a valid confirmation. A stale SDK snapshot must
+          // not invalidate a successful server-side stop.
+          confirmed = remoteResult.ok || await this.confirmPaused(player);
+        }
+        if (!confirmed || !localResult.ok || !muteResult.ok || op?.requestPending) this.retire(player);
+        if (!confirmed && device) this.onError('Spotify konnte den Stopp nicht bestätigen. Die Player-Verbindung wurde getrennt. Bitte stoppe gegebenenfalls die Wiedergabe in Spotify.');
       })().finally(() => {
         if (this.operation === op) this.operation = null;
         this.stopping = null;
@@ -140,7 +170,16 @@
       const op = this.operation;
       if (!op || op.cancelled || !op.sent || !state) return;
       if (op.started) {
-        if (state.paused || !this.matches(state, op)) void this.stop();
+        // A delayed pause/track-change event from Easy can arrive after Medium
+        // starts. Check the current state before stopping the new clip.
+        if ((state.paused || !this.matches(state, op)) && !op.checkingState) {
+          op.checkingState = true;
+          void attempt(() => op.player.getCurrentState(), this.timeouts.stop).then(latest => {
+            op.checkingState = false;
+            if (this.operation === op && !op.cancelled && latest.ok && latest.value &&
+                (latest.value.paused || !this.matches(latest.value, op))) void this.stop();
+          });
+        }
         return;
       }
       if (state.paused || !this.matches(state, op)) return;
@@ -192,9 +231,9 @@
         const request = this.api.request(`/me/player/play?device_id=${encodeURIComponent(op.device)}`, { ...options, body: { uris: [track.uri], position_ms: op.position } });
         // If the server accepted a start after cancellation, stop that old device
         // again. A missing HTTP reply never disables the independent clip timer.
-        void Promise.resolve(request).then(() => {
+        op.startSettled = Promise.resolve(request).then(() => {
           op.requestPending = false;
-          if (op.cancelled) return this.remoteStop(op.device);
+          if (op.cancelled && this.operation !== op) void this.remoteStop(op.device);
         }, () => { op.requestPending = false; });
         void this.poll(op);
         const result = await attempt(() => request, this.timeouts.startup);
