@@ -16,124 +16,198 @@
     });
     return sdkPromise;
   }
+  // Bound SDK commands too: their promises may never settle after a device error.
+  function attempt(action, milliseconds) {
+    return new Promise(resolve => {
+      const timer = setTimeout(() => resolve({ ok: false, error: new Error('Spotify reagiert nicht rechtzeitig.') }), milliseconds);
+      try {
+        Promise.resolve(action()).then(value => { clearTimeout(timer); resolve({ ok: true, value }); }, error => { clearTimeout(timer); resolve({ ok: false, error }); });
+      } catch (error) { clearTimeout(timer); resolve({ ok: false, error }); }
+    });
+  }
   class RevealPlayer {
-    constructor(api, { onState = () => {}, onError = () => {}, sdk = loadSdk } = {}) {
+    constructor(api, { onState = () => {}, onError = () => {}, sdk = loadSdk, timeouts = {} } = {}) {
       this.api = api;
       this.onState = onState;
       this.onError = onError;
       this.sdk = sdk;
-      this.epoch = 0;
+      this.timeouts = { startup: 8000, command: 1500, stop: 500, remote: 2500, ...timeouts };
       this.volume = .65;
       this.phase = 'idle';
       this.player = null;
       this.device = null;
       this.ready = null;
+      this.operation = null;
+      this.stopping = null;
     }
     state(phase, fraction = 0) { this.phase = phase; this.onState(phase, fraction); }
+    retire(player) {
+      try { player?.disconnect(); } catch { /* Continue with the device-specific API stop. */ }
+      if (this.player === player) { this.player = null; this.device = null; this.ready = null; }
+    }
     async prepare() {
       if (this.device) return;
       if (this.ready) return this.ready;
       this.ready = (async () => {
         await this.sdk();
-        this.player?.disconnect();
+        // Keep the in-flight ready promise while replacing an old connection.
+        try { this.player?.disconnect(); } catch { /* Already disconnected. */ }
+        this.player = null;
+        this.device = null;
         const player = this.player = new root.Spotify.Player({
-          name: 'TrackTally Audio Reveal', volume: 0, enableMediaSession: false,
+          name: 'TrackTally Audio Reveal', volume: this.volume, enableMediaSession: false,
           getOAuthToken: callback => { this.api.token().then(token => { if (token) callback(token); else this.fail('Deine Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.'); }).catch(() => this.fail('Spotify konnte nicht verbunden werden.')); }
         });
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => reject(new Error('Spotify Player ist nicht bereit. Bitte erneut versuchen.')), 12000);
-          const fail = message => { clearTimeout(timeout); reject(new Error(message)); this.fail(message); };
+          const fail = message => {
+            if (this.player !== player) return;
+            clearTimeout(timeout); reject(new Error(message)); this.fail(message);
+          };
           player.addListener('ready', ({ device_id }) => { if (this.player !== player) return; clearTimeout(timeout); this.device = device_id; resolve(); });
-          player.addListener('not_ready', () => { this.device = null; this.ready = null; this.fail('Die Spotify-Verbindung wurde unterbrochen. Starte den Ausschnitt erneut.'); });
-          player.addListener('initialization_error', () => fail('Dieser Browser unterstützt die Spotify-Wiedergabe nicht. Versuche Chrome, Edge oder Safari.'));
+          player.addListener('not_ready', () => { if (this.player === player) this.fail('Die Spotify-Verbindung wurde unterbrochen. Starte den Ausschnitt erneut.'); });
+          player.addListener('initialization_error', () => fail('Dieser Browser unterstützt die Spotify-Wiedergabe nicht.'));
           player.addListener('authentication_error', () => fail('Bitte verbinde Spotify erneut, um die Wiedergabe zu erlauben.'));
           player.addListener('account_error', () => fail('Für die Wiedergabe brauchst du Spotify Premium.'));
-          player.addListener('autoplay_failed', () => this.fail('Der Browser hat Audio blockiert. Klicke erneut auf Wiedergabe.'));
-          player.addListener('playback_error', () => this.fail('Dieser Song konnte nicht abgespielt werden. Versuche es erneut oder wähle eine neue Kategorie.'));
-          player.addListener('player_state_changed', state => {
-            if (!state || this.phase !== 'playing') return;
-            if (state.paused || state.track_window?.current_track?.uri !== this.expectedUri) void this.stop();
+          player.addListener('autoplay_failed', () => { if (this.player === player) this.fail('Der Browser hat Audio blockiert. Klicke erneut auf Wiedergabe.'); });
+          player.addListener('playback_error', ({ message } = {}) => {
+            if (this.player !== player || this.phase === 'stopping') return;
+            this.fail(message ? `Spotify-Wiedergabefehler: ${message}. Dein Versuch bleibt erhalten.` : 'Spotify konnte den Ausschnitt nicht abspielen. Dein Versuch bleibt erhalten.');
           });
+          player.addListener('player_state_changed', state => { if (this.player === player) this.observe(state); });
           player.connect().then(connected => { if (!connected) fail('Spotify Player konnte nicht verbunden werden.'); }).catch(error => fail(error.message));
         });
-      })().catch(error => { this.device = null; this.ready = null; this.player?.disconnect(); this.player = null; throw error; });
+      })().catch(error => { this.retire(this.player); throw error; });
       return this.ready;
     }
-    fail(message) { void this.stop(); this.onError(message); }
+    fail(message) {
+      if (this.phase === 'stopping') return;
+      void this.stop();
+      this.onError(message);
+    }
     async setVolume(value) {
       this.volume = Math.max(0, Math.min(1, Number(value) || 0));
-      // Preparation stays silent until the correct song is paused and positioned.
-      if (this.player && this.phase === 'playing') await this.player.setVolume(this.volume);
-    }
-    async stop() {
-      const epoch = ++this.epoch;
-      clearTimeout(this.stopTimer);
-      clearTimeout(this.watchdog);
-      clearInterval(this.meterTimer);
-      const player = this.player;
-      if (!player) { this.state(this.pendingEpoch ? 'stopping' : 'idle'); return; }
-      this.state('stopping');
-      try { await player.pause(); } catch { player.disconnect(); this.device = null; this.ready = null; }
-      if (epoch === this.epoch && !this.pendingEpoch) this.state('idle');
-    }
-    async play(track, seconds) {
-      if (this.phase !== 'idle' || this.pendingEpoch) return;
-      const epoch = ++this.epoch;
-      this.pendingEpoch = epoch;
-      let player;
-      const current = () => epoch === this.epoch;
-      const check = async () => {
-        if (current()) return true;
-        await player?.pause().catch(() => player.disconnect());
-        return false;
-      };
-      this.state('loading');
-      try {
-        // Call activateElement in the user's click stack when already prepared.
-        const activation = this.player?.activateElement();
-        await this.prepare();
-        player = this.player;
-        if (!await check()) return;
-        if (activation) await activation; else await player.activateElement();
-        if (!await check()) return;
-        await player.setVolume(0);
-        if (!await check()) return;
-        const start = Math.min(30000, Math.max(0, (track.duration_ms || 180000) - 17000));
-        this.expectedUri = track.uri;
-        await this.api.request(`/me/player/play?device_id=${encodeURIComponent(this.device)}`, { method: 'PUT', body: { uris: [track.uri], position_ms: start } });
-        if (!await check()) return;
-        let started = false;
-        for (let attempt = 0; attempt < 40; attempt++) {
-          const state = await player.getCurrentState();
-          if (!await check()) return;
-          if (state && !state.paused && state.track_window?.current_track?.uri === track.uri) { started = true; break; }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        if (!started) throw new Error('Der Song startet nicht. Klicke erneut auf Wiedergabe; dein Versuch bleibt erhalten.');
-        await player.pause();
-        if (!await check()) return;
-        await player.seek(start);
-        if (!await check()) return;
-        await player.setVolume(this.volume);
-        if (!await check()) return;
-        // Bound a stalled resume as well as normal playback. Pause uses the local
-        // SDK, never the rate-limited Web API queue.
-        this.watchdog = setTimeout(() => { if (current()) this.fail('Die Wiedergabe wurde unterbrochen. Bitte erneut starten.'); }, seconds * 1000 + 5000);
-        await player.resume();
-        if (!await check()) return;
-        clearTimeout(this.watchdog);
-        const startedAt = performance.now();
-        this.state('playing');
-        this.stopTimer = setTimeout(() => { if (current()) void this.stop(); }, seconds * 1000);
-        this.meterTimer = setInterval(() => { if (current()) this.onState('playing', Math.min(1, (performance.now() - startedAt) / (seconds * 1000))); }, 25);
-      } catch (error) {
-        if (current()) { await this.stop(); this.onError(error.message || 'Wiedergabe fehlgeschlagen. Bitte erneut versuchen.'); }
-      } finally {
-        if (this.pendingEpoch === epoch) this.pendingEpoch = null;
-        if (this.phase === 'stopping') this.state('idle');
+      if (this.player && this.phase === 'playing') {
+        const result = await attempt(() => this.player.setVolume(this.volume), this.timeouts.command);
+        if (!result.ok) throw result.error;
       }
     }
-    dispose() { void this.stop(); this.player?.disconnect(); this.device = null; this.ready = null; }
+    async remoteStop(device) {
+      if (!device) return { ok: false };
+      const controller = new AbortController();
+      const result = await attempt(() => this.api.pause(device, controller.signal), this.timeouts.remote);
+      controller.abort();
+      return result;
+    }
+    stop() {
+      if (this.stopping) return this.stopping;
+      const op = this.operation;
+      const player = op?.player || this.player;
+      // Keep the exact target even if a not_ready event disconnects the SDK.
+      const device = op?.device || this.device;
+      if (op) {
+        op.cancelled = true;
+        op.controller.abort();
+        clearTimeout(op.startTimer); clearTimeout(op.clipTimer); clearTimeout(op.pollTimer); clearInterval(op.meterTimer);
+      }
+      this.state('stopping');
+      this.stopping = (async () => {
+        // Both stop paths run immediately; a hung SDK must not block the Web API.
+        const remote = this.remoteStop(device);
+        const local = player ? attempt(() => player.pause(), this.timeouts.stop) : Promise.resolve({ ok: false });
+        if (player) void attempt(() => player.setVolume(0), this.timeouts.stop);
+        const [localResult, remoteResult] = await Promise.all([local, remote]);
+        const state = player ? await attempt(() => player.getCurrentState(), this.timeouts.stop) : { ok: false };
+        const confirmed = state.ok && state.value?.paused === true;
+        // Never trust only a resolved pause promise or an absent player state.
+        // A cancelled in-flight start also retires its device so it cannot leak
+        // into a subsequent clip after a late network response.
+        if (!confirmed || !localResult.ok || op?.requestPending) this.retire(player);
+        if (!confirmed && !remoteResult.ok && device) this.onError('Spotify konnte den Stopp nicht bestätigen. Die Player-Verbindung wurde getrennt. Bitte stoppe gegebenenfalls die Wiedergabe in Spotify.');
+      })().finally(() => {
+        if (this.operation === op) this.operation = null;
+        this.stopping = null;
+        this.state('idle');
+      });
+      return this.stopping;
+    }
+    matches(state, op) {
+      const actual = state?.track_window?.current_track;
+      const uris = [op.track.uri, op.track.linked_from?.uri, op.track.linked_from?.id && `spotify:track:${op.track.linked_from.id}`];
+      return actual && uris.includes(actual.uri);
+    }
+    observe(state) {
+      const op = this.operation;
+      if (!op || op.cancelled || !op.sent || !state) return;
+      if (op.started) {
+        if (state.paused || !this.matches(state, op)) void this.stop();
+        return;
+      }
+      if (state.paused || !this.matches(state, op)) return;
+      op.started = true;
+      clearTimeout(op.startTimer); clearTimeout(op.pollTimer);
+      // Subtract audio already played before Spotify's notification arrived.
+      const elapsed = Math.max(0, (Number(state.position) || op.position) - op.position);
+      const remaining = Math.max(0, op.milliseconds - elapsed);
+      const startedAt = performance.now() - elapsed;
+      // Arm the stop before updating UI and independently of the HTTP response.
+      op.clipTimer = setTimeout(() => { if (this.operation === op) void this.stop(); }, remaining);
+      op.meterTimer = setInterval(() => { if (!op.cancelled) this.onState('playing', Math.min(1, (performance.now() - startedAt) / op.milliseconds)); }, 25);
+      this.state('playing');
+    }
+    async poll(op) {
+      if (this.operation !== op || op.cancelled || op.started) return;
+      const state = await attempt(() => op.player.getCurrentState(), this.timeouts.stop);
+      if (this.operation !== op || op.cancelled || op.started) return;
+      if (state.ok) this.observe(state.value);
+      if (!op.started) op.pollTimer = setTimeout(() => { void this.poll(op); }, 40);
+    }
+    async play(track, seconds) {
+      if (this.phase !== 'idle' || this.operation || this.stopping) return;
+      if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 16) return;
+      const op = this.operation = { track, milliseconds: seconds * 1000, controller: new AbortController(), cancelled: false, sent: false, started: false };
+      const current = () => this.operation === op && !op.cancelled;
+      this.state('loading');
+      try {
+        // Preserve the browser's user gesture before any asynchronous work.
+        const activation = this.player ? attempt(() => this.player.activateElement(), this.timeouts.command) : null;
+        await this.prepare();
+        if (!current()) return;
+        op.player = this.player; op.device = this.device;
+        const activated = await (activation || attempt(() => op.player.activateElement(), this.timeouts.command));
+        if (!activated.ok) throw activated.error;
+        if (!current()) return;
+        const volume = await attempt(() => op.player.setVolume(this.volume), this.timeouts.command);
+        if (!volume.ok) throw volume.error;
+        if (!current()) return;
+        // Explicitly activate this browser device, matching the classic quiz.
+        const options = { method: 'PUT', signal: op.controller.signal };
+        const transferred = await attempt(() => this.api.request('/me/player', { ...options, body: { device_ids: [op.device], play: false } }), this.timeouts.startup);
+        if (!current()) return;
+        if (!transferred.ok) throw transferred.error;
+        op.position = Math.min(30000, Math.max(0, (track.duration_ms || 180000) - 17000));
+        // One positioned start. Do not rapidly pause/seek/resume an unready SDK.
+        op.sent = true; op.requestPending = true;
+        op.startTimer = setTimeout(() => { if (current()) this.fail('Spotify hat den Audiostart nicht bestätigt. Bitte erneut versuchen; dein Versuch bleibt erhalten.'); }, this.timeouts.startup);
+        const request = this.api.request(`/me/player/play?device_id=${encodeURIComponent(op.device)}`, { ...options, body: { uris: [track.uri], position_ms: op.position } });
+        // If the server accepted a start after cancellation, stop that old device
+        // again. A missing HTTP reply never disables the independent clip timer.
+        void Promise.resolve(request).then(() => {
+          op.requestPending = false;
+          if (op.cancelled) return this.remoteStop(op.device);
+        }, () => { op.requestPending = false; });
+        void this.poll(op);
+        const result = await attempt(() => request, this.timeouts.startup);
+        if (!current()) return;
+        if (!result.ok) throw result.error;
+      } catch (error) {
+        if (current()) { this.onError(error.message || 'Wiedergabe fehlgeschlagen. Bitte erneut versuchen.'); await this.stop(); }
+      }
+    }
+    dispose() {
+      void this.stop();
+      this.retire(this.player);
+    }
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = RevealPlayer;
   else root.TrackTallyRevealPlayer = RevealPlayer;

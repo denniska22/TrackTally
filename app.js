@@ -540,17 +540,23 @@
     if (blockedUntil > Date.now()) throw spotifyRateLimitError(blockedUntil);
 
 
-    const response = await queueSpotifyRequest(async () => {
+    const { playbackPriority = false, ...fetchOptions } = options;
+    const performRequest = async () => {
+      options.signal?.throwIfAborted();
       const token = await freshToken();
+      options.signal?.throwIfAborted();
       if (!token) throw new Error('Deine Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.');
       const headers = { Authorization: 'Bearer ' + token, ...(options.headers || {}) };
       if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
       return fetch('https://api.spotify.com/v1' + path, {
-        ...options,
+        ...fetchOptions,
         headers,
         body: options.body ? JSON.stringify(options.body) : undefined
       });
-    });
+    };
+    // An audio stop must not wait behind catalog searches. Spotify's own
+    // Retry-After limit above still applies to both paths.
+    const response = await (playbackPriority ? performRequest() : queueSpotifyRequest(performRequest));
 
 
     if (response.status === 429) {
@@ -1402,6 +1408,10 @@
   if (document.body.classList.contains('audio-reveal-page')) {
     window.TrackTallySpotify = Object.freeze({
       request: spotifyRequest,
+      pause: (deviceId, signal) => {
+        if (!deviceId) return Promise.reject(new Error('Kein Spotify-Player zum Stoppen verfügbar.'));
+        return executeSpotifyRequest(`/me/player/pause?device_id=${encodeURIComponent(deviceId)}`, { method: 'PUT', signal, playbackPriority: true });
+      },
       token: freshToken,
       hasSession: () => Boolean(tokenData()),
       hasScopes: () => ['streaming', 'user-modify-playback-state', 'user-library-read', 'user-top-read'].every(scope => (tokenData()?.scope || '').split(' ').includes(scope)),

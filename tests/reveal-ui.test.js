@@ -160,3 +160,33 @@ test('successful OAuth callback sends the player back to Audio Reveal', async ()
   assert.equal(destination, 'https://example.com/TrackTally/progressive-audio-reveal.html');
   assert.equal(sessionStorage.getItem('tracktally_return_to_reveal'), null);
 });
+
+test('urgent audio pause bypasses a pending search and cancelled queued starts never reach Spotify', async () => {
+  const { document } = documentFixture();
+  const sessionStorage = storage({ tracktally_token: JSON.stringify({ access_token: 'test-only', expires_at: Date.now() + 3600000 }) });
+  const requests = [];
+  let releaseSearch;
+  const context = { document, sessionStorage, localStorage: storage(), location: { pathname: '/TrackTally/progressive-audio-reveal.html', search: '', origin: 'https://example.com' }, URL, URLSearchParams, setTimeout, clearTimeout, setInterval, clearInterval, fetch: async (url, options) => {
+    requests.push({ url, options });
+    if (url.includes('/search?')) return new Promise(resolve => { releaseSearch = () => resolve({ ok: true, status: 200, json: async () => ({ tracks: { items: [] } }) }); });
+    return { ok: true, status: 204 };
+  } };
+  context.window = context;
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'app.js'), 'utf8'), context);
+  const api = context.TrackTallySpotify;
+  const searching = api.request('/search?q=test&type=track');
+  await tick();
+  const abort = new AbortController();
+  const starting = api.request('/me/player/play?device_id=quiz-device', { method: 'PUT', body: { uris: ['spotify:track:one'] }, signal: abort.signal });
+  abort.abort();
+  await api.pause('quiz-device');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url, 'https://api.spotify.com/v1/me/player/pause?device_id=quiz-device');
+  assert.equal(requests[1].options.method, 'PUT');
+  assert.equal('playbackPriority' in requests[1].options, false);
+  releaseSearch();
+  await searching;
+  await assert.rejects(starting, { name: 'AbortError' });
+  assert.equal(requests.some(request => request.url.includes('/me/player/play?')), false);
+  await assert.rejects(api.pause(''), /Kein Spotify-Player/);
+});
